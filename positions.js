@@ -25,20 +25,28 @@ function load() {
   if (raw) {
     try { return JSON.parse(raw); } catch (e) { console.warn('新版数据解析失败'); }
   }
+
+  /* ===== 处理旧版数据 ===== */
   const oldList = JSON.parse(localStorage.getItem('stockPosReal') || '[]');
   if (oldList.length > 0) {
-    const migrated = {
-      categories: [{ id: 'default', name: '投顾' }],
-      positions: oldList.map(pos => ({ ...pos, id: uid(), categoryId: 'default' }))
-    };
+    /* 1. 收集旧数据中出现的所有栏目名 */
+    const catNameSet = new Set(oldList.map(i => i.category || '投顾').filter(Boolean));
+    /* 2. 生成新栏目表 */
+    const newCats = Array.from(catNameSet).map(name => ({ id: uid(), name }));
+    /* 3. 建立 名称->id 映射 */
+    const name2id = Object.fromEntries(newCats.map(c => [c.name, c.id]));
+    /* 4. 给旧记录补 categoryId */
+    const newPos = oldList.map(pos => ({
+      ...pos,
+      id: uid(),
+      categoryId: name2id[pos.category || '投顾'] || name2id['投顾']
+    }));
+    const migrated = { categories: newCats, positions: newPos };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
     return migrated;
   }
-  return { categories: [{ id: 'default', name: '投顾' }], positions: [] };
-}
 
-function save() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  return { categories: [{ id: 'default', name: '投顾' }], positions: [] };
 }
 
 /* ---------- CSV ---------- */
