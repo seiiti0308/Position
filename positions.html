@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>智能投顾CRM系统</title>
+  <link rel="stylesheet" href="positions.css"/>
+</head>
+<body>
+  <div class="header-container">
+    <h1 class="title">智能投顾CRM系统</h1>
+    <div class="toolbar">
+      <button id="addBtn" class="btn btn-primary">添加持仓</button>
+      <button id="importBtn" class="btn">导入 CSV</button>
+      <button id="exportBtn" class="btn">导出 CSV</button>
+      <button id="manageCatBtn" class="btn">管理栏目</button>
+      <input type="text" id="searchInput" placeholder="搜索客户/代码/股票名..." class="search-box"/>
+    </div>
+    <div class="category-tabs"></div>
+  </div>
+
+  <!-- 左右分栏：表格区 + 右侧日历热图 -->
+  <div class="content-wrapper">
+    <div class="main-content">
+      <table id="stockTable">
+        <thead>
+          <tr>
+            <th class="sortable" data-key="clientName">客户姓名</th>
+            <th class="sortable" data-key="joinDate">加入时间</th>
+            <th class="sortable" data-key="name">股票名称<br>市值</th>
+            <th class="sortable" data-key="current">现价 / 成本</th>
+            <th class="sortable" data-key="dayRate">当日涨幅</th>
+            <th class="sortable" data-key="quantity">仓位</th>
+            <th class="sortable" data-key="profit">盈亏</th>
+            <th>操作</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div id="emptyTip" class="empty">暂无持仓</div>
+    </div>
+
+    <aside class="side-cal">
+      <h3>日期筛选</h3>
+      <input type="date" id="startDate" class="search-box" title="开始日期"/>
+      <input type="date" id="endDate" class="search-box" title="结束日期"/>
+      <div id="miniCal" class="mini-cal"></div>
+    </aside>
+  </div>
+
+  <!-- 弹窗 -->
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">编辑持仓</div>
+      <div class="form-grid">
+        <div class="form-group"><label>客户姓名</label><input id="clientName" type="text"/></div>
+        <div class="form-group"><label>股票代码</label><input id="code" type="text" onblur="autoName()" placeholder="输入后自动识别名称"/></div>
+        <div class="form-group"><label>股票名称</label><input id="name" type="text" readonly/></div>
+        <div class="form-group"><label>成本价</label><input id="cost" type="number" step="0.01"/></div>
+        <div class="form-group"><label>仓位（100倍数）</label><input id="qty" type="number" value="100"/></div>
+        <div class="form-group"><label>加入时间</label><input id="joinDate" type="date"/></div>
+        <div class="form-group"><label>所属栏目</label><select id="categorySelect"></select></div>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn" onclick="closeModal()">取消</button>
+        <button class="btn btn-primary" onclick="savePosition()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="categoryModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">管理栏目</div>
+      <div id="categoryList"></div>
+      <div style="margin-top: 15px; display: flex; gap: 8px;">
+        <input type="text" id="newCatName" placeholder="新栏目名称" style="flex:1; padding:6px;"/>
+        <button class="btn btn-primary" onclick="addCategory()">添加</button>
+      </div>
+      <div style="margin-top: 15px; text-align: center;">
+        <button class="btn" onclick="document.getElementById('categoryModal').style.display='none'">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 通用导出选择弹窗 -->
+<div id="exportChoiceModal" class="modal">
+  <div class="modal-content" style="max-width:420px">
+    <div class="modal-header">选择导出范围</div>
+    <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:15px">
+      <div class="form-group">
+        <label>开始日期</label>
+        <input type="date" id="exportStart" />
+      </div>
+      <div class="form-group">
+        <label>结束日期</label>
+        <input type="date" id="exportEnd" />
+      </div>
+      <div class="form-group">
+        <label>栏目</label>
+        <select id="exportCategory">
+          <option value="">全部栏目</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-buttons">
+      <button class="btn" onclick="closeExportChoiceModal()">取消</button>
+      <button class="btn btn-primary" onclick="doExportAll()">导出</button>
+    </div>
+  </div>
+</div>
+
+  <input type="file" id="importFile" accept=".csv" style="display:none"/>
+  <script src="positions.js"></script>
+</body>
+</html>

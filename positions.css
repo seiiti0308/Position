@@ -1,0 +1,490 @@
+/* ========== 全局重置：修复顶部空白 ========== */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+:root {
+  --primary: #667eea;
+  --danger: #e53e3e;
+  --success: #38a169;
+  --radius: 8px;
+  --shadow: 0 2px 8px rgba(0, 0, 0, .08);
+}
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+body {
+  background: linear-gradient(135deg, #f0f5ff 0%, #e6e9f0 100%);
+  color: #333;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ========== 固定顶部区域 ========== */
+.header-container {
+  position: sticky;
+  top: 0;
+  background: linear-gradient(135deg, #f0f5ff 0%, #e6e9f0 100%);
+  z-index: 100;
+  padding: 20px 0;
+  border-bottom: 1px solid #ddd;
+}
+.title {
+  text-align: center;
+  font-size: 1.8rem;
+  color: #4a5568;
+  margin-bottom: 15px;
+}
+
+/* ========== 工具栏 ========== */
+.toolbar {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 15px;
+}
+.btn {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all .3s ease;
+  background: #f0f0f0;
+  color: #333;
+}
+.btn:hover {
+  background: #e0e0e0;
+}
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: #5a6fd8;
+}
+.search-box {
+  width: 260px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+}
+@media (max-width: 768px) {
+  .search-box {
+    width: 160px;
+  }
+}
+
+/* ========== 栏目标签 ========== */
+.category-tabs {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.category-tabs .btn {
+  padding: 8px 16px;
+  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background-color: #ffffff;
+  color: #333;
+  cursor: grab;
+  user-select: none;
+  transition: all 0.2s;
+}
+.category-tabs .btn[style*="background-color: rgb(102, 126, 234)"] {
+  color: white !important;
+  border-color: #667eea;
+}
+.category-tabs .btn:active {
+  cursor: grabbing;
+  opacity: 0.85;
+}
+
+/* ========== 左右分栏：右侧新增日历框 ========== */
+.content-wrapper {
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  max-width: 1200px;
+  margin: 0 auto;
+  flex: 1;
+  min-height: 0;
+}
+.main-content {
+  flex: 1;
+  overflow-y: auto;
+  border-radius: var(--radius);
+  background: white;
+  box-shadow: var(--shadow);
+  min-height: 0;
+  min-height: 60vh;
+}
+.side-cal {
+  width: 240px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: var(--radius);
+  padding: 12px;
+  box-shadow: var(--shadow);
+  height: fit-content;
+  flex-shrink: 0;
+}
+.side-cal h3 {
+  font-size: 14px;
+  margin: 0 0 8px;
+  color: #555;
+}
+.side-cal .search-box {
+  width: 100%;
+  margin-bottom: 8px;
+}
+.side-cal .mini-cal {
+  max-width: 100%;
+}
+@media (max-width: 768px) {
+  .content-wrapper {
+    flex-direction: column;
+  }
+  .side-cal {
+    width: 100%;
+  }
+}
+
+/* ========== 表格 ========== */
+#stockTable {
+  width: 100%;
+  min-width: 100%; /* ✅ 关键：空表时也强制撑满，防止塌陷 */
+  border-collapse: collapse;
+  font-size: 13px;
+  table-layout: fixed;
+  margin: 0;
+  border: 1px solid #eee;
+  background: white;
+}
+thead {
+  background: #f8f9fa;
+  border-bottom: 1px solid #ddd;
+}
+th {
+  padding: 10px;
+  text-align: center;
+  color: #555;
+  position: relative;
+  user-select: none;
+  cursor: pointer;
+  background: #f8f9fa;
+}
+td {
+  padding: 4px 6px;
+  border-bottom: 1px solid #eee;
+  text-align: center;
+}
+tr:hover {
+  background: #fafafa;
+}
+.profit-positive {
+  color: var(--danger);
+  font-weight: 600;
+}
+.profit-negative {
+  color: var(--success);
+  font-weight: 600;
+}
+.empty {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+}
+
+/* 排序箭头 */
+th.sortable::after {
+  content: "▲";
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  opacity: 0.4;
+}
+th.sortable.asc::after {
+  content: "▼";
+  opacity: 1;
+  color: var(--primary);
+}
+th.sortable.desc::after {
+  content: "▲";
+  opacity: 1;
+  color: var(--primary);
+}
+
+/* 操作按钮 */
+.op-btn {
+  margin: 0 2px;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+  border: 1px solid #ddd;
+  background: #fff;
+  cursor: pointer;
+  transition: all .2s;
+}
+.op-btn:hover {
+  background: #f0f0f0;
+}
+.op-btn.del {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.op-btn.del:hover {
+  background: #ffebee;
+}
+
+/* 弹窗 */
+.modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .4);
+  z-index: 1000;
+}
+.modal-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #fff;
+  border-radius: var(--radius);
+  width: 90%;
+  max-width: 500px;
+  padding: 25px;
+  box-shadow: var(--shadow);
+}
+.modal-header {
+  font-size: 1.2rem;
+  margin-bottom: 15px;
+  font-weight: 600;
+}
+
+/* ===== 两排栅格：文字在上，编辑框在下，现代紧凑 ===== */
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 24px;
+  align-items: start;
+}
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.form-group label {
+  font-size: 13px;
+  color: #555;
+  font-weight: 500;
+}
+.form-group input,
+.form-group select {
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  background: #fff;
+  transition: border-color .2s;
+}
+.form-group input:focus,
+.form-group select:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+@media (max-width: 500px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.modal-buttons {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 15px;
+}
+
+/* ===== 管理栏目：左右两排，文字在上，输入框在下，删除在右侧 ===== */
+#categoryList {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 24px;
+  align-items: start;
+}
+#categoryList > div {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+#categoryList input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 13px;
+}
+#categoryList .op-btn.del {
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+  border: 1px solid var(--danger);
+  background: #fff;
+  color: var(--danger);
+  cursor: pointer;
+  transition: all .2s;
+}
+#categoryList .op-btn.del:hover {
+  background: #ffebee;
+}
+
+/* 导入导出按钮颜色 */
+#importBtn {
+  background: #f59e0b;
+  color: #fff;
+}
+#importBtn:hover {
+  background: #d97706;
+}
+#exportBtn {
+  background: #10b981;
+  color: #fff;
+}
+#exportBtn:hover {
+  background: #0da271;
+}
+
+/* 移动端优化：填满留白，紧凑现代 */
+@media (max-width: 768px) {
+  table, thead, tbody, th, td, tr {
+    display: block;
+  }
+  thead tr {
+    position: absolute;
+    top: -9999px;
+    left: -9999px;
+  }
+  tr {
+    border: 1px solid #e5e7eb;
+    margin-bottom: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+    background: #fff;
+    width: 100%;
+  }
+  td {
+    text-align: left;
+    padding: 6px 12px !important;
+    position: relative;
+    border: none;
+    font-size: 14px;
+    line-height: 1.3;
+    width: 100%;
+  }
+  td::before {
+    content: attr(data-label);
+    display: inline-block;
+    width: 90px;
+    font-weight: 500;
+    color: #6b7280;
+    font-size: 12px;
+    letter-spacing: .3px;
+  }
+  td:last-child {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #f3f4f6;
+  }
+  .op-btn {
+    padding: 4px 8px;
+    font-size: 11px;
+    border-radius: 4px;
+    border: 1px solid #d1d5db;
+    background: #fff;
+    color: #374151;
+    cursor: pointer;
+    transition: all .2s;
+  }
+  .op-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+  }
+  .op-btn.del {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+  .op-btn.del:hover {
+    background: #fee2e2;
+  }
+}
+
+/* ===== 迷你日历：月份独占一行，星期/日期 7 等分 ===== */
+#miniCal {
+  display: grid;
+  grid-template-columns: repeat(7, 26px);
+  gap: 3px;
+  justify-content: center;
+  margin-top: 8px;
+}
+
+/* 年月标题：占满 7 列并独占一行 */
+#miniCal > .cal-title {
+  grid-column: 1 / -1;          /* 横跨 7 列 */
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+/* 星期文字 */
+#miniCal > .cal-weekday {
+  width: 26px;
+  height: 18px;
+  line-height: 18px;
+  text-align: center;
+  font-size: 11px;
+  color: #666;
+}
+
+/* 日期按钮 */
+#miniCal button {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background .2s, color .2s, border-color .2s;
+}
+
+#miniCal button.has {
+  background: #667eea;
+  color: #fff;
+  border-color: #667eea;
+}
+
+#miniCal button.none:hover {
+  background: #f3f4f6;
+}
