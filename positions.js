@@ -50,19 +50,10 @@ function load() {
 }
 
 /* ---------- CSV ---------- */
-function objToCSV(list) {
-  const head = 'clientName,code,name,quantity,cost,current,dayRate,marketValue,profit,profitPct,pinned,joinDate,categoryId';
-  const rows = list.map(r => [
-    r.clientName, r.code, r.name, r.quantity, r.cost, r.current, r.dayRate,
-    r.marketValue, r.profit, r.profitPct, r.pinned ? 1 : 0, r.joinDate, r.categoryId
-  ].map(v => (v + '').includes(',') ? `"${v}"` : v).join(','));
-  return [head, ...rows].join('\n');
-}
-
 function csvToObj(str) {
   const lines = str.trim().split('\n');
   const keys = lines[0].split(',');
-  return lines.slice(1).map(l => {
+  const rows = lines.slice(1).map(l => {
     const val = l.split(',').map((v, i) => v.replace(/^"|"$/g, ''));
     return {
       clientName: val[0],
@@ -77,10 +68,27 @@ function csvToObj(str) {
       profitPct: Number(val[9]) || 0,
       pinned: (val[10] || '0') === '1',
       joinDate: val[11] || fmtDate(),
-      categoryId: val[12] || 'default',
+      categoryName: val[12] || '投顾',   // 先保留名称
       id: uid()
     };
   });
+
+  /* ===== 自动建栏目 ===== */
+  const nameSet = [...new Set(rows.map(r => r.categoryName))];
+  const newCats = nameSet.map(name => ({ id: uid(), name }));
+  const name2id = Object.fromEntries(newCats.map(c => [c.name, c.id]));
+
+  /* 把名称换成 id，并合并到主 categories（去重） */
+  newCats.forEach(c => {
+    if (!data.categories.find(ex => ex.name === c.name)) data.categories.push(c);
+  });
+
+  rows.forEach(r => {
+    r.categoryId = name2id[r.categoryName];
+    delete r.categoryName;
+  });
+
+  return rows;
 }
 
 /* ---------- 排序 ---------- */
