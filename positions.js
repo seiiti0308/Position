@@ -20,22 +20,19 @@ const WEEK_HEAD = ['日','一','二','三','四','五','六'];
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 function fmtDate() { return new Date().toISOString().split('T')[0]; }
 
+/* ---------- 存取 ---------- */
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
 function load() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw) {
-    try { return JSON.parse(raw); } catch (e) { console.warn('新版数据解析失败'); }
-  }
+  if (raw) { try { return JSON.parse(raw); } catch (e) { console.warn('解析失败'); } }
 
-  /* ===== 处理旧版数据 ===== */
+  /* 旧版数据迁移（只跑一次） */
   const oldList = JSON.parse(localStorage.getItem('stockPosReal') || '[]');
-  if (oldList.length > 0) {
-    /* 1. 收集旧数据中出现的所有栏目名 */
-    const catNameSet = new Set(oldList.map(i => i.category || '投顾').filter(Boolean));
-    /* 2. 生成新栏目表 */
-    const newCats = Array.from(catNameSet).map(name => ({ id: uid(), name }));
-    /* 3. 建立 名称->id 映射 */
+  if (oldList.length) {
+    const nameSet = new Set(oldList.map(i => i.category || '投顾'));
+    const newCats = Array.from(nameSet).map(name => ({ id: uid(), name }));
     const name2id = Object.fromEntries(newCats.map(c => [c.name, c.id]));
-    /* 4. 给旧记录补 categoryId */
     const newPos = oldList.map(pos => ({
       ...pos,
       id: uid(),
@@ -45,16 +42,26 @@ function load() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
     return migrated;
   }
-
   return { categories: [{ id: 'default', name: '投顾' }], positions: [] };
 }
 
 /* ---------- CSV ---------- */
+function objToCSV(list) {
+  const head = 'clientName,code,name,quantity,cost,current,dayRate,marketValue,profit,profitPct,pinned,joinDate,categoryName';
+  const rows = list.map(r => {
+    const catName = data.categories.find(c => c.id === r.categoryId)?.name || '投顾';
+    return [
+      r.clientName, r.code, r.name, r.quantity, r.cost, r.current, r.dayRate,
+      r.marketValue, r.profit, r.profitPct, r.pinned ? 1 : 0, r.joinDate, catName
+    ].map(v => (v + '').includes(',') ? `"${v}"` : v).join(',');
+  });
+  return [head, ...rows].join('\n');
+}
+
 function csvToObj(str) {
   const lines = str.trim().split('\n');
-  const keys = lines[0].split(',');
   const rows = lines.slice(1).map(l => {
-    const val = l.split(',').map((v, i) => v.replace(/^"|"$/g, ''));
+    const val = l.split(',').map(v => v.replace(/^"|"$/g, ''));
     return {
       clientName: val[0],
       code: val[1],
@@ -68,44 +75,23 @@ function csvToObj(str) {
       profitPct: Number(val[9]) || 0,
       pinned: (val[10] || '0') === '1',
       joinDate: val[11] || fmtDate(),
-      categoryName: val[12] || '投顾',   // 先保留名称
+      categoryName: val[12] || '投顾',   // 中文名
       id: uid()
     };
   });
-
-  /* ===== 自动建栏目 ===== */
-  const nameSet = [...new Set(rows.map(r => r.categoryName))];
-  const newCats = nameSet.map(name => ({ id: uid(), name }));
-  const name2id = Object.fromEntries(newCats.map(c => [c.name, c.id]));
-
-  /* 把名称换成 id，并合并到主 categories（去重） */
-  newCats.forEach(c => {
-    if (!data.categories.find(ex => ex.name === c.name)) data.categories.push(c);
-  });
-
-  rows.forEach(r => {
-    r.categoryId = name2id[r.categoryName];
-    delete r.categoryName;
-  });
-
   return rows;
 }
 
 /* ---------- 排序 ---------- */
 function sortList(list) {
-  if (!sortKey) {
-    list.sort((a, b) => (b.pinned || 0) - (a.pinned || 0));
-    return;
-  }
+  if (!sortKey) { list.sort((a, b) => (b.pinned || 0) - (a.pinned || 0)); return; }
   const asc = sortDir === 'asc' ? 1 : -1;
   list.sort((a, b) => {
     let va = a[sortKey], vb = b[sortKey];
     if (['current', 'dayRate', 'quantity', 'profit', 'profitPct', 'marketValue', 'cost'].includes(sortKey)) {
       va = parseFloat(va) || 0; vb = parseFloat(vb) || 0;
     }
-    if (va > vb) return asc;
-    if (va < vb) return -asc;
-    return 0;
+    if (va > vb) return asc; if (va < vb) return -asc; return 0;
   });
 }
 
@@ -113,9 +99,7 @@ function bindSortEvent() {
   document.querySelectorAll('th.sortable').forEach(th => {
     th.addEventListener('click', () => {
       const key = th.dataset.key;
-      if (sortKey !== key) {
-        sortKey = key; sortDir = 'asc';
-      } else {
+      if (sortKey !== key) { sortKey = key; sortDir = 'asc'; } else {
         sortDir = sortDir === 'asc' ? 'desc' : (sortDir === 'desc' ? '' : 'asc');
         if (!sortDir) sortKey = '';
       }
@@ -156,8 +140,7 @@ function getCurrentPositions() {
   return data.positions.filter(p => {
     if (p.categoryId !== currentCategoryId) return false;
     if (!dateStart && !dateEnd) return true;
-    const d = new Date(p.joinDate);
-    d.setHours(0, 0, 0, 0);
+    const d = new Date(p.joinDate); d.setHours(0, 0, 0, 0);
     const start = dateStart ? new Date(dateStart) : null;
     const end = dateEnd ? new Date(dateEnd) : null;
     if (start) start.setHours(0, 0, 0, 0);
@@ -175,97 +158,35 @@ function buildMiniCal(y, m) {
   const wrap = document.getElementById('miniCal');
   if (!wrap) return;
   wrap.innerHTML = '';
-
   const nav = document.createElement('div');
-  nav.style.display = 'flex';
-  nav.style.justifyContent = 'space-between';
-  nav.style.marginBottom = '4px';
-  nav.style.gridColumn = '1 / -1';
-
-  const prev = document.createElement('button');
-  prev.textContent = '‹';
-  prev.onclick = () => {
-    if (m === 1) { calYear = y - 1; calMonth = 12; }
-    else { calYear = y; calMonth = m - 1; }
-    buildMiniCal(calYear, calMonth);
-  };
-
-  const title = document.createElement('div');
-  title.className = 'cal-title';
-  title.textContent = `${y}年${m.toString().padStart(2,'0')}月`;
-  title.style.textAlign = 'center';
-  title.style.flex = '1';
-
-  const next = document.createElement('button');
-  next.textContent = '›';
-  next.onclick = () => {
-    if (m === 12) { calYear = y + 1; calMonth = 1; }
-    else { calYear = y; calMonth = m + 1; }
-    buildMiniCal(calYear, calMonth);
-  };
-
-  nav.appendChild(prev);
-  nav.appendChild(title);
-  nav.appendChild(next);
-  wrap.appendChild(nav);
-
-  WEEK_HEAD.forEach(w => {
-    const span = document.createElement('div');
-    span.className = 'cal-weekday';
-    span.textContent = w;
-    wrap.appendChild(span);
-  });
-
-  const firstDay = new Date(y, m - 1, 1).getDay();
-  const daysInMonth = new Date(y, m, 0).getDate();
-
+  nav.style.display = 'flex'; nav.style.justifyContent = 'space-between'; nav.style.marginBottom = '4px'; nav.style.gridColumn = '1 / -1';
+  const prev = document.createElement('button'); prev.textContent = '‹';
+  prev.onclick = () => { if (m === 1) { calYear = y - 1; calMonth = 12; } else { calYear = y; calMonth = m - 1; } buildMiniCal(calYear, calMonth); };
+  const title = document.createElement('div'); title.className = 'cal-title'; title.textContent = `${y}年${m.toString().padStart(2,'0')}月`; title.style.textAlign = 'center'; title.style.flex = '1';
+  const next = document.createElement('button'); next.textContent = '›';
+  next.onclick = () => { if (m === 12) { calYear = y + 1; calMonth = 1; } else { calYear = y; calMonth = m + 1; } buildMiniCal(calYear, calMonth); };
+  nav.appendChild(prev); nav.appendChild(title); nav.appendChild(next); wrap.appendChild(nav);
+  WEEK_HEAD.forEach(w => { const span = document.createElement('div'); span.className = 'cal-weekday'; span.textContent = w; wrap.appendChild(span); });
+  const firstDay = new Date(y, m - 1, 1).getDay(); const daysInMonth = new Date(y, m, 0).getDate();
   for (let i = 0; i < firstDay; i++) wrap.appendChild(document.createElement('div'));
-
   for (let d = 1; d <= daysInMonth; d++) {
     const dt = `${y}-${MONTHS[m-1]}-${String(d).padStart(2,'0')}`;
     const has = data.positions.some(p => p.joinDate === dt && p.categoryId === currentCategoryId);
-    const btn = document.createElement('button');
-    btn.textContent = d;
-    btn.className = has ? 'has' : 'none';
-    btn.onclick = () => {
-      const input = document.getElementById('startDate');
-      input.value = dt;
-      dateStart = dt;
-      dateEnd = dt;
-      input.dispatchEvent(new Event('change'));
-    };
+    const btn = document.createElement('button'); btn.textContent = d; btn.className = has ? 'has' : 'none';
+    btn.onclick = () => { const input = document.getElementById('startDate'); input.value = dt; dateStart = dt; dateEnd = dt; input.dispatchEvent(new Event('change')); };
     wrap.appendChild(btn);
   }
 }
 
 function render() {
-  const list = getCurrentPositions();
-  sortList(list);
-  const tb = document.querySelector('#stockTable tbody');
-  const empty = document.getElementById('emptyTip');
-  tb.innerHTML = '';
-
-  if (!list.length) {
-    empty.style.display = 'block';
-    document.getElementById('stockTable').style.display = 'table';
-    document.querySelector('#stockTable tbody').innerHTML = '';
-    return;
-  }
-
-  empty.style.display = 'none';
-  document.getElementById('stockTable').style.display = 'table';
-
+  const list = getCurrentPositions(); sortList(list);
+  const tb = document.querySelector('#stockTable tbody'); const empty = document.getElementById('emptyTip'); tb.innerHTML = '';
+  if (!list.length) { empty.style.display = 'block'; document.getElementById('stockTable').style.display = 'table'; return; }
+  empty.style.display = 'none'; document.getElementById('stockTable').style.display = 'table';
   list.forEach(it => {
     const globalIdx = data.positions.findIndex(p => p.id === it.id);
-    const hay = `${it.clientName}|${it.code}|${it.name}`.toLowerCase();
-    if (searchKey && !hay.includes(searchKey)) return;
-
-    const current = it.current ?? it.cost ?? 0;
-    const dayRate = (it.dayRate ?? 0).toFixed(2);
-    const profit = it.profit ?? 0;
-    const profitPct = it.profitPct ?? 0;
-    const marketValue = it.marketValue ?? 0;
-
+    const hay = `${it.clientName}|${it.code}|${it.name}`.toLowerCase(); if (searchKey && !hay.includes(searchKey)) return;
+    const current = it.current ?? it.cost ?? 0; const dayRate = (it.dayRate ?? 0).toFixed(2); const profit = it.profit ?? 0; const profitPct = it.profitPct ?? 0; const marketValue = it.marketValue ?? 0;
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${it.clientName}<br><small style="color:#999;">${it.code}</small></td>
@@ -282,28 +203,17 @@ function render() {
       </td>
     `;
     tr.style.cursor = 'pointer';
-    tr.addEventListener('click', (e) => {
-      if (e.target.classList.contains('op-btn')) return;
-      window.open(`https://www.iwencai.com/unifiedwap/result?w=${it.code}&querytype=stock`, '_blank');
-    });
+    tr.addEventListener('click', (e) => { if (e.target.classList.contains('op-btn')) return; window.open(`https://www.iwencai.com/unifiedwap/result?w=${it.code}&querytype=stock`, '_blank'); });
     tb.appendChild(tr);
   });
-
-  renderCategoryTabs();
-  buildMiniCal(calYear, calMonth);
+  renderCategoryTabs(); buildMiniCal(calYear, calMonth);
 }
 
 /* ---------- 置顶 ---------- */
 function togglePin(globalIdx) {
   const item = data.positions[globalIdx];
-  if (item.pinned) {
-    item.pinned = false;
-    const idx = data.positions.indexOf(item);
-    data.positions.push(...data.positions.splice(idx, 1));
-  } else {
-    item.pinned = true;
-    const idx = data.positions.indexOf(item);
-    data.positions.unshift(...data.positions.splice(idx, 1));
+  if (item.pinned) { item.pinned = false; const idx = data.positions.indexOf(item); data.positions.push(...data.positions.splice(idx, 1)); } else {
+    item.pinned = true; const idx = data.positions.indexOf(item); data.positions.unshift(...data.positions.splice(idx, 1));
   }
   save(); render();
 }
@@ -439,22 +349,17 @@ function renderCategoryTabs() {
   const container = document.querySelector('.category-tabs');
   if (!container) return;
   container.innerHTML = '';
-
   if (data.categories.length === 0) {
     data.categories.push({ id: 'default', name: '投顾' });
     currentCategoryId = 'default';
     save();
   }
-
-  if (!data.categories.some(cat => cat.id === currentCategoryId))
-    currentCategoryId = data.categories[0].id;
-
+  if (!data.categories.some(cat => cat.id === currentCategoryId)) currentCategoryId = data.categories[0].id;
   data.categories.forEach(cat => {
     const btn = document.createElement('button');
     btn.className = 'btn category-tab';
     btn.draggable = true;
     btn.dataset.catId = cat.id;
-
     if (cat.id === currentCategoryId) {
       btn.style.backgroundColor = '#667eea';
       btn.style.color = '#fff';
@@ -464,7 +369,6 @@ function renderCategoryTabs() {
       btn.style.color = '#333';
       btn.style.borderColor = '#ddd';
     }
-
     btn.textContent = cat.name;
     btn.addEventListener('dragstart', e => {
       e.dataTransfer.setData('text/plain', cat.id);
@@ -498,30 +402,18 @@ function renderCategoryModal() {
   container.innerHTML = '';
   data.categories.forEach(cat => {
     const div = document.createElement('div');
-    div.style.display = 'flex';
-    div.style.alignItems = 'center';
-    div.style.margin = '8px 0';
-
+    div.style.display = 'flex'; div.style.alignItems = 'center'; div.style.margin = '8px 0';
     const input = document.createElement('input');
-    input.type = 'text';
-    input.value = cat.name;
+    input.type = 'text'; input.value = cat.name;
     input.style.cssText = 'width:140px;padding:4px;margin-right:8px;border:1px solid #ccc;border-radius:4px;';
     input.onchange = () => {
       const newName = input.value.trim();
-      if (newName) {
-        cat.name = newName;
-        save(); renderCategoryTabs();
-      } else input.value = cat.name;
+      if (newName) { cat.name = newName; save(); renderCategoryTabs(); } else input.value = cat.name;
     };
-
     const delBtn = document.createElement('button');
-    delBtn.className = 'op-btn del';
-    delBtn.textContent = '删除';
+    delBtn.className = 'op-btn del'; delBtn.textContent = '删除';
     delBtn.onclick = () => deleteCategory(cat.id);
-
-    div.appendChild(input);
-    div.appendChild(delBtn);
-    container.appendChild(div);
+    div.appendChild(input); div.appendChild(delBtn); container.appendChild(div);
   });
 }
 
@@ -534,8 +426,7 @@ function addCategory() {
 }
 
 function deleteCategory(id) {
-  if (id === 'default' && data.categories.length === 1)
-    return alert('至少保留一个栏目！');
+  if (id === 'default' && data.categories.length === 1) return alert('至少保留一个栏目！');
   if (data.positions.some(p => p.categoryId === id))
     if (!confirm('该栏目下有持仓，删除会同时清除所有持仓！确定吗？')) return;
   data.categories = data.categories.filter(c => c.id !== id);
@@ -551,29 +442,18 @@ function closeExportChoiceModal() {
 
 function doExportAll() {
   const start = document.getElementById('exportStart').value;
-  const end   = document.getElementById('exportEnd').value;
+  const end = document.getElementById('exportEnd').value;
   const catId = document.getElementById('exportCategory').value;
-
   let list = data.positions;
-
-  // 栏目筛选
   if (catId) list = list.filter(p => p.categoryId === catId);
-
-  // 日期筛选
   if (start || end) {
     list = list.filter(p => {
-      const d = new Date(p.joinDate);
-      d.setHours(0,0,0,0);
-      const s = start ? new Date(start) : null;
-      if(s) s.setHours(0,0,0,0);
-      const e = end ? new Date(end) : null;
-      if(e) e.setHours(23,59,59,999);
-      if (s && d < s) return false;
-      if (e && d > e) return false;
-      return true;
+      const d = new Date(p.joinDate); d.setHours(0, 0, 0, 0);
+      const s = start ? new Date(start) : null; if (s) s.setHours(0, 0, 0, 0);
+      const e = end ? new Date(end) : null; if (e) e.setHours(23, 59, 59, 999);
+      if (s && d < s) return false; if (e && d > e) return false; return true;
     });
   }
-
   const csv = objToCSV(list);
   downloadCSV(csv, `positions_${fmtDate()}.csv`);
   closeExportChoiceModal();
@@ -594,8 +474,8 @@ window.onload = () => {
 
   const startInp = document.getElementById('startDate');
   const endInp = document.getElementById('endDate');
-  if(startInp) startInp.onchange = e => { dateStart = e.target.value; render(); };
-  if(endInp) endInp.onchange = e => { dateEnd = e.target.value; render(); };
+  if (startInp) startInp.onchange = e => { dateStart = e.target.value; render(); };
+  if (endInp) endInp.onchange = e => { dateEnd = e.target.value; render(); };
 
   document.getElementById('addBtn').onclick = showAddModal;
   document.getElementById('searchInput').oninput = e => { searchKey = e.target.value.trim().toLowerCase(); render(); };
@@ -613,7 +493,6 @@ window.onload = () => {
     document.getElementById('exportStart').value = '';
     document.getElementById('exportEnd').value = '';
 
-    // 填充栏目下拉
     const catSel = document.getElementById('exportCategory');
     catSel.innerHTML = '<option value="">全部栏目</option>';
     data.categories.forEach(c => {
@@ -633,7 +512,23 @@ window.onload = () => {
     const reader = new FileReader();
     reader.onload = evt => {
       try {
+        /* 1. 解析为中文名称 */
         const imported = csvToObj(evt.target.result);
+
+        /* 2. 按名称建栏目（不重复） */
+        const nameSet = [...new Set(imported.map(r => r.categoryName))];
+        nameSet.forEach(name => {
+          if (!data.categories.find(c => c.name === name)) {
+            data.categories.push({ id: uid(), name });
+          }
+        });
+        const name2id = Object.fromEntries(data.categories.map(c => [c.name, c.id]));
+
+        /* 3. 名称 -> id，并去重导入 */
+        imported.forEach(r => {
+          r.categoryId = name2id[r.categoryName];
+          delete r.categoryName;
+        });
         const exists = new Set(data.positions.map(i => `${i.code}-${i.clientName}`));
         let added = 0;
         imported.forEach(r => {
@@ -642,6 +537,7 @@ window.onload = () => {
             added++;
           }
         });
+
         save(); render();
         alert(`导入完成！新增 ${added} 条，跳过 ${imported.length - added} 条重复记录。`);
       } catch (err) {
