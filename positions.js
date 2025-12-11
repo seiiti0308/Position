@@ -557,47 +557,79 @@ window.onload = () => {
   exportModal.insertBefore(importArea, exportModal.querySelector('.modal-buttons'));
 
   window.handleImportInModal = function () {
-    const file = document.getElementById('importInModal').files[0];
-    if (!file) return alert('请先选择 CSV 文件');
-    const reader = new FileReader();
-    reader.onload = evt => {
-      try {
-        const rawList = csvToObj(evt.target.result);
-        if (!rawList.length) return alert('未解析到任何记录');
-        const startStr = document.getElementById('exportStart').value;
-        const endStr = document.getElementById('exportEnd').value;
-        const catId = document.getElementById('exportCategory').value;
-        const startDate = startStr ? new Date(startStr) : null;
-        const endDate = endStr ? new Date(endStr) : null;
-        if (startDate) startDate.setHours(0,0,0,0);
-        if (endDate) endDate.setHours(23,59,59,999);
-        const name2id = Object.fromEntries(data.categories.map(c => [c.name, c.id]));
-        const exists = new Set(data.positions.map(i => `${i.code}-${i.clientName}`));
-        let added = 0;
-        rawList.forEach(r => {
-          if (catId) {
-            const rowCatId = name2id[r.categoryName];
-            if (rowCatId !== catId) return;
-          }
-          const rowDate = new Date(r.joinDate);
-          if (startDate && rowDate < startDate) return;
-          if (endDate && rowDate > endDate) return;
-          if (!exists.has(`${r.code}-${r.clientName}`)) {
-            r.categoryId = name2id[r.categoryName];
-            delete r.categoryName;
-            data.positions.push(r);
-            added++;
-          }
-        });
-        save(); render();
-        alert(`导入完成！新增 ${added} 条，跳过 ${rawList.length - added} 条重复记录。`);
-        closeExportChoiceModal();
-      } catch (err) {
-        alert('解析失败，请检查 CSV 格式！\n' + err);
+  const file = document.getElementById('importInModal').files[0];
+  if (!file) return alert('请先选择 CSV 文件');
+  const reader = new FileReader();
+  reader.onload = evt => {
+    try {
+      /* ----------  解析  ---------- */
+      const rawList = csvToObj(evt.target.result);
+      if (!rawList.length) return alert('未解析到任何记录');
+
+      /* ----------  过滤条件  ---------- */
+      const startStr = document.getElementById('exportStart').value;
+      const endStr   = document.getElementById('exportEnd').value;
+      const catSel   = document.getElementById('exportCategory');
+      const filterId = catSel.value;
+      const filterName = filterId
+            ? (data.categories.find(c => c.id === filterId)?.name ?? '')
+            : '';
+
+      const startDate = startStr ? new Date(startStr) : null;
+      const endDate   = endStr   ? new Date(endStr)   : null;
+      if (startDate) startDate.setHours(0,0,0,0);
+      if (endDate)   endDate.setHours(23,59,59,999);
+
+      /* ----------  补栏目  ---------- */
+      if (filterId && !data.categories.some(c => c.id === filterId)) {
+        data.categories.push({ id: filterId, name: filterName });
       }
-    };
-    reader.readAsText(file, 'UTF-8');
+      const csvCatNames = [...new Set(rawList.map(r => (r.categoryName || '投顾').trim()))];
+      csvCatNames.forEach(name => {
+        if (!data.categories.some(c => c.name === name)) {
+          data.categories.push({ id: uid(), name });
+        }
+      });
+      const name2id = Object.fromEntries(data.categories.map(c => [c.name, c.id]));
+
+      /* ----------  去重键：代码+客户（忽略大小写/空格） ---------- */
+      const exists = new Set(data.positions.map(p =>
+        `${String(p.code).trim().toLowerCase()}-${String(p.clientName).trim().toLowerCase()}`
+      ));
+
+      let added = 0;
+      rawList.forEach(r => {
+        const rowCatName = (r.categoryName || '投顾').trim();
+        const rowCatId   = name2id[rowCatName];
+
+        /* 栏目过滤 */
+        if (filterId && rowCatId !== filterId) return;
+
+        /* 日期过滤 */
+        const rowDate = new Date(r.joinDate);
+        if (startDate && rowDate < startDate) return;
+        if (endDate   && rowDate > endDate)   return;
+
+        /* 去重 */
+        const key = `${String(r.code).trim().toLowerCase()}-${String(r.clientName).trim().toLowerCase()}`;
+        if (exists.has(key)) return;
+
+        exists.add(key);          // 防止本次导入内重复
+        r.categoryId = rowCatId;
+        delete r.categoryName;
+        data.positions.push(r);
+        added++;
+      });
+
+      save(); render();
+      alert(`导入完成！新增 ${added} 条，跳过 ${rawList.length - added} 条重复记录。`);
+      closeExportChoiceModal();
+    } catch (err) {
+      alert('解析失败，请检查 CSV 格式！\n' + err);
+    }
   };
+  reader.readAsText(file, 'UTF-8');
+};
 
   const invertBtn = document.createElement('button');
   invertBtn.textContent = '反选';
