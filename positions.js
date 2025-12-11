@@ -556,7 +556,7 @@ window.onload = () => {
     <div style="font-size:12px;color:#666;margin-top:4px;">提示：导入时会按上方选择的“日期区间”+“栏目”做过滤，无筛选则全部导入。</div>`;
   exportModal.insertBefore(importArea, exportModal.querySelector('.modal-buttons'));
 
-  window.handleImportInModal = function () {
+window.handleImportInModal = function () {
   const file = document.getElementById('importInModal').files[0];
   if (!file) return alert('请先选择 CSV 文件');
   const reader = new FileReader();
@@ -630,6 +630,8 @@ window.onload = () => {
   };
   reader.readAsText(file, 'UTF-8');
 };
+
+  
   const invertBtn = document.createElement('button');
   invertBtn.textContent = '反选';
   invertBtn.className = 'btn';
