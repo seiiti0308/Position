@@ -630,7 +630,6 @@ window.onload = () => {
   };
   reader.readAsText(file, 'UTF-8');
 };
-
   const invertBtn = document.createElement('button');
   invertBtn.textContent = '反选';
   invertBtn.className = 'btn';
