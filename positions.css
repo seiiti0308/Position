@@ -25,7 +25,6 @@ body {
   flex-direction: column;
 }
 
-/* ========== 固定顶部区域 ========== */
 .header-container {
   position: sticky;
   top: 0;
@@ -41,7 +40,6 @@ body {
   margin-bottom: 15px;
 }
 
-/* ========== 工具栏 ========== */
 .toolbar {
   display: flex;
   gap: 15px;
@@ -83,7 +81,6 @@ body {
   }
 }
 
-/* ========== 栏目标签 ========== */
 .category-tabs {
   display: flex;
   gap: 10px;
@@ -111,7 +108,6 @@ body {
   opacity: 0.85;
 }
 
-/* ========== 左右分栏：右侧新增日历框 ========== */
 .content-wrapper {
   display: flex;
   gap: 20px;
@@ -161,10 +157,9 @@ body {
   }
 }
 
-/* ========== 表格 ========== */
 #stockTable {
   width: 100%;
-  min-width: 100%; /* ✅ 关键：空表时也强制撑满，防止塌陷 */
+  min-width: 100%;
   border-collapse: collapse;
   font-size: 13px;
   table-layout: fixed;
@@ -193,6 +188,9 @@ td {
 tr:hover {
   background: #fafafa;
 }
+tr.selected {
+  background: #e0e7ff;
+}
 .profit-positive {
   color: var(--danger);
   font-weight: 600;
@@ -206,8 +204,6 @@ tr:hover {
   padding: 40px;
   color: #999;
 }
-
-/* 排序箭头 */
 th.sortable::after {
   content: "▲";
   position: absolute;
@@ -227,8 +223,6 @@ th.sortable.desc::after {
   opacity: 1;
   color: var(--primary);
 }
-
-/* 操作按钮 */
 .op-btn {
   margin: 0 2px;
   padding: 4px 8px;
@@ -249,8 +243,6 @@ th.sortable.desc::after {
 .op-btn.del:hover {
   background: #ffebee;
 }
-
-/* 弹窗 */
 .modal {
   display: none;
   position: fixed;
@@ -275,8 +267,6 @@ th.sortable.desc::after {
   margin-bottom: 15px;
   font-weight: 600;
 }
-
-/* ===== 两排栅格：文字在上，编辑框在下，现代紧凑 ===== */
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -318,8 +308,6 @@ th.sortable.desc::after {
   justify-content: flex-end;
   margin-top: 15px;
 }
-
-/* ===== 管理栏目：左右两排，文字在上，输入框在下，删除在右侧 ===== */
 #categoryList {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -353,8 +341,6 @@ th.sortable.desc::after {
 #categoryList .op-btn.del:hover {
   background: #ffebee;
 }
-
-/* 导入导出按钮颜色 */
 #importBtn {
   background: #f59e0b;
   color: #fff;
@@ -369,8 +355,6 @@ th.sortable.desc::after {
 #exportBtn:hover {
   background: #0da271;
 }
-
-/* 移动端优化：填满留白，紧凑现代 */
 @media (max-width: 768px) {
   table, thead, tbody, th, td, tr {
     display: block;
@@ -385,7 +369,7 @@ th.sortable.desc::after {
     margin-bottom: 8px;
     padding: 10px 12px;
     border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .05);
+    box-shadow: 0 1px 3px rgba(0,0,0,.05);
     background: #fff;
     width: 100%;
   }
@@ -437,8 +421,6 @@ th.sortable.desc::after {
     background: #fee2e2;
   }
 }
-
-/* ===== 迷你日历：月份独占一行，星期/日期 7 等分 ===== */
 #miniCal {
   display: grid;
   grid-template-columns: repeat(7, 26px);
@@ -446,17 +428,13 @@ th.sortable.desc::after {
   justify-content: center;
   margin-top: 8px;
 }
-
-/* 年月标题：占满 7 列并独占一行 */
 #miniCal > .cal-title {
-  grid-column: 1 / -1;          /* 横跨 7 列 */
+  grid-column: 1 / -1;
   text-align: center;
   font-size: 14px;
   font-weight: 600;
   margin-bottom: 4px;
 }
-
-/* 星期文字 */
 #miniCal > .cal-weekday {
   width: 26px;
   height: 18px;
@@ -465,8 +443,6 @@ th.sortable.desc::after {
   font-size: 11px;
   color: #666;
 }
-
-/* 日期按钮 */
 #miniCal button {
   width: 26px;
   height: 26px;
@@ -478,13 +454,38 @@ th.sortable.desc::after {
   cursor: pointer;
   transition: background .2s, color .2s, border-color .2s;
 }
-
 #miniCal button.has {
   background: #667eea;
   color: #fff;
   border-color: #667eea;
 }
-
 #miniCal button.none:hover {
   background: #f3f4f6;
+}
+
+/* 导出弹窗栅格：自适应高度 + 紧凑模式 */
+#exportChoiceModal .form-grid {
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px 12px;               /* 减小间距 */
+  align-items: start;           /* 顶部对齐，防止被撑高 */
+}
+#exportChoiceModal .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;                     /* 标签与控件更近 */
+}
+#exportChoiceModal .form-group label {
+  font-size: 12px;              /* 标签更小 */
+  line-height: 1.2;
+}
+#exportChoiceModal .form-group input,
+#exportChoiceModal .form-group select {
+  font-size: 13px;
+  padding: 3px 6px;             /* 上下再收 1px */
+  min-height: 28px;             /* 保证可视高度 */
+  line-height: 1.2;
+}
+/* 底部按钮区域也收紧 */
+#exportChoiceModal .modal-buttons {
+  margin-top: 10px;
 }
