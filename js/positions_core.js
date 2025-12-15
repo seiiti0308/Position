@@ -68,6 +68,7 @@ async function logOut() {
 async function loadUserData() {
   const user = currentUser();
   if (!user.id) return null;
+  /* **** 第1处关键修正：按 owner 字段查，而不是 objectId **** */
   const url = `${LC_HOST}/1.1/classes/${USER_CLASS}?where={"owner":"${user.id}"}&limit=1`;
   const res = await fetch(url, { headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY } });
   const json = await res.json();
@@ -83,6 +84,7 @@ async function saveUserData(payload) {
   await fetch(url, {
     method,
     headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json', 'X-LC-Session': user.session },
+    /* **** 第2处关键修正：owner 存的是用户 id，不是 objectId **** */
     body: JSON.stringify({ data: JSON.stringify(payload), owner: user.id })
   });
 }
@@ -93,13 +95,11 @@ async function loadUserRaw() {
   const json = await res.json();
   return json.results && json.results.length ? json.results[0] : null;
 }
-/* **** 第1处改动：先给本地，保证瞬间可交互 **** */
 async function load() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) try { return JSON.parse(raw); } catch {}
   return { categories: [{ id: 'default', name: '投顾' }], positions: [] };
 }
-/* **** 第2处改动：后台静默同步云端 **** */
 async function backgroundSyncCloud() {
   const user = currentUser();
   if (!user.id) return;
@@ -114,7 +114,6 @@ async function backgroundSyncCloud() {
 }
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  /* **** 第3处改动：本地时钟判断，满1小时才上传 **** */
   checkBackup();
 }
 function checkBackup() {
