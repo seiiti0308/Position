@@ -1,4 +1,4 @@
-/* ========== 以下全部为 positions_ui.js 完整内容 ========== */
+/* ========== 以下全部为 positions_ui.js 完整内容（仅微调绑定时机） ========== */
 function getCurrentPositions() {
   return data.positions.filter(p => {
     if (p.categoryId !== currentCategoryId) return false;
@@ -300,7 +300,7 @@ async function doLogin() {
     document.getElementById('loginModal').style.display = 'none';
     document.getElementById('userMgrBtn').style.display = 'inline-block';
     localStorage.setItem('lc_username', u);
-    await checkRole();          // 关键：拿权限
+    await checkRole();
     location.reload();
   } catch (e) {
     document.getElementById('loginTip').textContent = mapError(e.message);
@@ -327,14 +327,13 @@ async function doRegister() {
 async function checkRole() {
   const user = currentUser();
   if (!user.id) return;
-  // 取 LeanCloud _User 表里的 role 字段
   const res = await fetch(`${LC_HOST}/1.1/users/${user.id}`,{
     headers:{'X-LC-Id':LC_APP_ID,'X-LC-Key':LC_APP_KEY}
   });
   const u = await res.json();
   const role = u.role || 'user';
   localStorage.setItem('lc_role', role);
-  // 控制按钮
+  // 仅控制显示，不再这里绑定事件
   const btn = document.getElementById('manageCatBtn');
   if (btn) btn.style.display = role === 'admin' ? 'inline-block' : 'none';
 }
@@ -352,17 +351,17 @@ function closeUserMgrModal() {
 }
 document.getElementById('innerLogoutBtn').onclick = () => {
   closeUserMgrModal();
-  logOut();                 // 真正退出
+  logOut();
 };
 document.getElementById('userMgrBtn').onclick = openUserMgrModal;
 
-/* ========== 页面入口：保持原样 ========== */
+/* ========== 页面入口：保证 DOM 已渲染再绑定 ========== */
 window.onload = async () => {
   const user = currentUser();
   if (user.id) {
     document.getElementById('loginModal').style.display = 'none';
     document.getElementById('userMgrBtn').style.display = 'inline-block';
-    await checkRole();      // 刷新权限
+    await checkRole();      // 仅控制按钮显示
   } else {
     document.getElementById('loginModal').style.display = 'flex';
   }
@@ -377,7 +376,16 @@ window.onload = async () => {
 
   document.getElementById('addBtn').onclick = showAddModal;
   document.getElementById('searchInput').oninput = e => { searchKey = e.target.value.trim().toLowerCase(); render(); };
-  /* manageCatBtn 的 onclick 已移到 checkRole() 里动态控制，无需再绑 */
+
+  /* ===== 第1处微调：DOM已渲染，再绑管理栏目 ===== */
+  const manageBtn = document.getElementById('manageCatBtn');
+  if (manageBtn) {
+    manageBtn.onclick = () => {
+      renderCategoryModal();
+      document.getElementById('categoryModal').style.display = 'block';
+    };
+  }
+
   document.getElementById('userMgrBtn').onclick = openUserMgrModal;
 
   bindSortEvent();
