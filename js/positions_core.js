@@ -93,18 +93,28 @@ async function loadUserRaw() {
   const json = await res.json();
   return json.results && json.results.length ? json.results[0] : null;
 }
+/* **** 第1处改动：先给本地，保证瞬间可交互 **** */
 async function load() {
-  const user = currentUser();
-  if (user.id) {
-    const d = await loadUserData();
-    if (d) return d;
-  }
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) try { return JSON.parse(raw); } catch {}
   return { categories: [{ id: 'default', name: '投顾' }], positions: [] };
 }
+/* **** 第2处改动：后台静默同步云端 **** */
+async function backgroundSyncCloud() {
+  const user = currentUser();
+  if (!user.id) return;
+  const cloud = await loadUserData();
+  if (cloud) {
+    data = cloud;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    render();
+  } else if (data.positions.length) {
+    saveUserData(data).catch(console.warn);
+  }
+}
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  /* **** 第3处改动：本地时钟判断，满1小时才上传 **** */
   checkBackup();
 }
 function checkBackup() {
