@@ -123,7 +123,6 @@ body {
   border-radius: var(--radius);
   background: white;
   box-shadow: var(--shadow);
-  min-height: 0;
   min-height: 60vh;
 }
 .side-cal {
@@ -379,9 +378,6 @@ th.sortable.desc::after {
   background: #667eea;
   color: #fff;
   border-color: #667eea;
-}
-#miniCal button.none:hover {
-  background: #f3f4f6;
 }
 
 /* ===== 小眼睛密码框专用 ===== */
