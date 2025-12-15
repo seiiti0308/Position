@@ -9,7 +9,6 @@ function getCurrentPositions() {
     if (start && d < start) return false; if (end && d > end) return false; return true;
   });
 }
-const MONTHS = ['01','02','03','04','05','06','07','08','09','10','11','12'];
 function buildMiniCal(y, m) {
   const wrap = document.getElementById('miniCal'); if (!wrap) return;
   wrap.innerHTML = '';
@@ -24,9 +23,9 @@ function buildMiniCal(y, m) {
   const firstDay = new Date(y, m - 1, 1).getDay(); const daysInMonth = new Date(y, m, 0).getDate();
   for (let i = 0; i < firstDay; i++) wrap.appendChild(document.createElement('div'));
   for (let d = 1; d <= daysInMonth; d++) {
-    const dt = `${y}-${MONTHS[m-1]}-${String(d).padStart(2,'0')}`;
+    const dt = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const has = data.positions.some(p => p.joinDate === dt && p.categoryId === currentCategoryId);
-    const btn = document.createElement('button'); btn.textContent = d; btn.className = has ? 'has' : 'none';
+    const btn = document.createElement('button'); btn.textContent = d; btn.className = has ? 'has' : '';
     btn.onclick = () => { const input = document.getElementById('startDate'); if (input) { input.value = dt; dateStart = dt; dateEnd = dt; input.dispatchEvent(new Event('change')); } };
     wrap.appendChild(btn);
   }
@@ -77,19 +76,6 @@ function invertSelection() {
   const list = getCurrentPositions();
   list.forEach(p => { if (selectedSet.has(p.id)) selectedSet.delete(p.id); else selectedSet.add(p.id); });
   render();
-}
-function togglePin(globalIdx) {
-  const item = data.positions[globalIdx];
-  if (item.pinned) {
-    item.pinned = false;
-    const idx = data.positions.indexOf(item);
-    data.positions.push(...data.positions.splice(idx, 1));
-  } else {
-    item.pinned = true;
-    const idx = data.positions.indexOf(item);
-    data.positions.unshift(...data.positions.splice(idx, 1));
-  }
-  save(); render();
 }
 function handleDelete(globalIdx) { if (selectedSet.size) { batchDelete(); } else { delItem(globalIdx); } }
 function handlePin(globalIdx) { if (selectedSet.size) { batchPin(); } else { togglePin(globalIdx); } }
@@ -372,8 +358,6 @@ window.onload = async () => {
   render();
   startAutoRefresh();
 
-  const oldImport = document.getElementById('importBtn');
-  if (oldImport) oldImport.remove();
   const exportBtn = document.getElementById('exportBtn');
   if (exportBtn) exportBtn.textContent = '导入 /导出';
   exportBtn.onclick = () => {
