@@ -10,7 +10,7 @@
   <!-- 登录层 -->
   <div id="loginModal" class="modal" style="display:flex">
     <div class="modal-content" style="max-width:320px">
-      <div class="modal-header">登录 / 注册</div>
+      <div class="modal-header">登录</div>
       <div class="form-grid" style="grid-template-columns:1fr">
         <div class="form-group">
           <label>用户名</label>
@@ -26,7 +26,6 @@
       </div>
       <div class="modal-buttons">
         <button type="button" class="btn" onclick="doLogin()">登录</button>
-        <button type="button" class="btn btn-primary" onclick="doRegister()">注册</button>
       </div>
       <div id="loginTip" style="color:red;font-size:12px;margin-top:8px"></div>
     </div>
@@ -37,8 +36,8 @@
     <h1 class="title">智能投顾系统</h1>
     <div class="toolbar">
       <button id="addBtn" class="btn btn-primary">添加持仓</button>
-      <button id="exportBtn" class="btn">导入 /导出</button>
-      <button id="manageCatBtn" class="btn">管理栏目</button>
+      <button id="exportBtn" class="btn btn-primary">导入 /导出</button>
+      <button id="manageCatBtn" class="btn btn-primary">管理栏目</button>
       <input type="text" id="searchInput" placeholder="搜索客户/代码/股票名..." class="search-box"/>
       <button id="userMgrBtn" style="display:none;">用户管理</button>
     </div>
@@ -141,3 +140,4 @@
 <script src="js/positions_ui.js"></script>
 </body>
 </html>
+
