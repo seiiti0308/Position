@@ -30,6 +30,7 @@ const BACKUP_CLASS = 'StockBackup';
 function currentUser() {
   return { id: localStorage.getItem('lc_userid'), session: localStorage.getItem('lc_session') };
 }
+
 async function signUp(username, password) {
   const res = await fetch(`${LC_HOST}/1.1/users`, {
     method: 'POST',
@@ -40,8 +41,11 @@ async function signUp(username, password) {
   const u = await res.json();
   localStorage.setItem('lc_session', u.sessionToken);
   localStorage.setItem('lc_userid', u.objectId);
+  /* ✅ 注册成功立即同步 */
+  await backgroundSyncCloud();
   return u;
 }
+
 async function logIn(username, password) {
   const res = await fetch(`${LC_HOST}/1.1/login`, {
     method: 'POST',
@@ -52,8 +56,11 @@ async function logIn(username, password) {
   const u = await res.json();
   localStorage.setItem('lc_session', u.sessionToken);
   localStorage.setItem('lc_userid', u.objectId);
+  /* ✅ 登录成功立即同步 */
+  await backgroundSyncCloud();
   return u;
 }
+
 async function logOut() {
   const user = currentUser();
   if (user.id) await saveUserData(data);
@@ -68,13 +75,13 @@ async function logOut() {
 async function loadUserData() {
   const user = currentUser();
   if (!user.id) return null;
-  /* **** 第1处关键修正：按 owner 字段查，而不是 objectId **** */
   const url = `${LC_HOST}/1.1/classes/${USER_CLASS}?where={"owner":"${user.id}"}&limit=1`;
   const res = await fetch(url, { headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY } });
   const json = await res.json();
   if (json.results && json.results.length) return JSON.parse(json.results[0].data);
   return null;
 }
+
 async function saveUserData(payload) {
   const user = currentUser();
   if (!user.id) return;
@@ -84,10 +91,10 @@ async function saveUserData(payload) {
   await fetch(url, {
     method,
     headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json', 'X-LC-Session': user.session },
-    /* **** 第2处关键修正：owner 存的是用户 id，不是 objectId **** */
     body: JSON.stringify({ data: JSON.stringify(payload), owner: user.id })
   });
 }
+
 async function loadUserRaw() {
   const user = currentUser();
   const url = `${LC_HOST}/1.1/classes/${USER_CLASS}?where={"owner":"${user.id}"}&limit=1`;
@@ -95,11 +102,14 @@ async function loadUserRaw() {
   const json = await res.json();
   return json.results && json.results.length ? json.results[0] : null;
 }
+
 async function load() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) try { return JSON.parse(raw); } catch {}
   return { categories: [{ id: 'default', name: '投顾' }], positions: [] };
 }
+
+/* ✅ 修复：登录后自动拉云端 */
 async function backgroundSyncCloud() {
   const user = currentUser();
   if (!user.id) return;
@@ -112,10 +122,12 @@ async function backgroundSyncCloud() {
     saveUserData(data).catch(console.warn);
   }
 }
+
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   checkBackup();
 }
+
 function checkBackup() {
   const now = Date.now();
   const last = parseInt(localStorage.getItem(BACKUP_KEY) || '0', 10);
@@ -124,11 +136,13 @@ function checkBackup() {
     localStorage.setItem(BACKUP_KEY, String(now));
   }
 }
+
 async function hourlyCloudSave() {
   const user = currentUser();
   if (!user.id) return;
   try { await saveUserData(data); } catch (e) { console.warn(e); }
 }
+
 async function backupToCloud() {
   try {
     const row = await cloudGetOne(BACKUP_CLASS);
@@ -141,6 +155,7 @@ async function backupToCloud() {
     });
   } catch (e) { console.warn(e); }
 }
+
 async function cloudGetOne(className) {
   const url = `${LC_HOST}/1.1/classes/${className}?limit=1`;
   const res = await fetch(url, { headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY } });
@@ -156,6 +171,7 @@ function uploadNow() {
   if (!user.id) { alert('请先登录'); return; }
   saveUserData(data).then(() => alert('已备份云端')).catch(() => alert('备份失败'));
 }
+
 function objToCSV(list) {
   const head = 'clientName,code,name,quantity,cost,current,dayRate,marketValue,profit,profitPct,pinned,joinDate,categoryName';
   const rows = list.map(r => {
@@ -166,6 +182,7 @@ function objToCSV(list) {
   });
   return [head, ...rows].join('\n');
 }
+
 function csvToObj(str) {
   return str.trim().split('\n').slice(1).map(l => {
     const val = l.split(',').map(v => v.replace(/^"|"$/g, ''));
@@ -177,6 +194,7 @@ function csvToObj(str) {
     };
   });
 }
+
 function sortList(list) {
   if (!sortKey) { list.sort((a, b) => (b.pinned || 0) - (a.pinned || 0)); return; }
   const asc = sortDir === 'asc' ? 1 : -1;
@@ -188,6 +206,7 @@ function sortList(list) {
     if (va > vb) return asc; if (va < vb) return -asc; return 0;
   });
 }
+
 function bindSortEvent() {
   document.querySelectorAll('th.sortable').forEach(th => {
     th.addEventListener('click', () => {
@@ -200,6 +219,7 @@ function bindSortEvent() {
     });
   });
 }
+
 async function refreshPrice() {
   if (!data.positions.length) return;
   for (const it of data.positions) {
@@ -216,6 +236,7 @@ async function refreshPrice() {
   }
   save(); render();
 }
+
 function startAutoRefresh() {
   if (timer) clearInterval(timer); refreshPrice(); timer = setInterval(refreshPrice, 5000);
 }
