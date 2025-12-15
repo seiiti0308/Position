@@ -403,23 +403,35 @@ window.onload = async () => {
         const endDate   = endStr   ? new Date(endStr)   : null;
         if (startDate) startDate.setHours(0,0,0,0);
         if (endDate)   endDate.setHours(23,59,59,999);
-        if (filterId && !data.categories.some(c => c.id === filterId)) data.categories.push({ id: filterId, name: filterName });
+
+        /* ---- 改动1：不再提前push空栏目，只记录待建 ---- */
+        const needCreate = new Set();
         const csvCatNames = [...new Set(rawList.map(r => (r.categoryName || '投顾').trim()))];
-        csvCatNames.forEach(name => { if (!data.categories.some(c => c.name === name)) data.categories.push({ id: uid(), name }); });
+        csvCatNames.forEach(name => {
+          if (!data.categories.some(c => c.name === name)) needCreate.add(name);
+        });
+
         const name2id = Object.fromEntries(data.categories.map(c => [c.name, c.id]));
         const exists = new Set(data.positions.map(p => `${String(p.code).trim().toLowerCase()}-${String(p.clientName).trim().toLowerCase()}`));
         let added = 0;
         rawList.forEach(r => {
           const rowCatName = (r.categoryName || '投顾').trim();
-          const rowCatId   = name2id[rowCatName];
-          if (filterId && rowCatId !== filterId) return;
           const rowDate = new Date(r.joinDate);
+          if (filterId && name2id[rowCatName] !== filterId) return;
           if (startDate && rowDate < startDate) return;
           if (endDate   && rowDate > endDate)   return;
           const key = `${String(r.code).trim().toLowerCase()}-${String(r.clientName).trim().toLowerCase()}`;
           if (exists.has(key)) return;
           exists.add(key);
-          r.categoryId = rowCatId;
+
+          /* ---- 改动2：真正要写入时才建栏目 ---- */
+          if (needCreate.has(rowCatName)){
+              const newId = uid();
+              data.categories.push({ id: newId, name: rowCatName });
+              name2id[rowCatName] = newId;
+              needCreate.delete(rowCatName);
+          }
+          r.categoryId = name2id[rowCatName];
           delete r.categoryName;
           data.positions.push(r);
           added++;
