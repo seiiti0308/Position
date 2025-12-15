@@ -41,8 +41,7 @@ async function signUp(username, password) {
   const u = await res.json();
   localStorage.setItem('lc_session', u.sessionToken);
   localStorage.setItem('lc_userid', u.objectId);
-  /* ✅ 注册成功立即同步 */
-  await backgroundSyncCloud();
+  await backgroundSyncCloud();   // ✅ 注册完同步
   return u;
 }
 
@@ -56,14 +55,13 @@ async function logIn(username, password) {
   const u = await res.json();
   localStorage.setItem('lc_session', u.sessionToken);
   localStorage.setItem('lc_userid', u.objectId);
-  /* ✅ 登录成功立即同步 */
-  await backgroundSyncCloud();
+  await backgroundSyncCloud();   // ✅ 登录完同步
   return u;
 }
 
 async function logOut() {
   const user = currentUser();
-  if (user.id) await saveUserData(data);
+  if (user.id) await saveUserData(data); // 退出时强制上传
   localStorage.removeItem('lc_session');
   localStorage.removeItem('lc_userid');
   localStorage.removeItem(STORAGE_KEY);
@@ -109,17 +107,17 @@ async function load() {
   return { categories: [{ id: 'default', name: '投顾' }], positions: [] };
 }
 
-/* ✅ 修复：登录后自动拉云端 */
+/* ✅ 关键修复：云端有数据就强制覆盖本地 */
 async function backgroundSyncCloud() {
   const user = currentUser();
   if (!user.id) return;
   const cloud = await loadUserData();
-  if (cloud) {
+  if (cloud) {                                    // 云端有 → 覆盖
     data = cloud;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     render();
-  } else if (data.positions.length) {
-    saveUserData(data).catch(console.warn);
+  } else {                                        // 云端无 → 看本地要不要上传
+    if (data.positions.length) saveUserData(data).catch(console.warn);
   }
 }
 
