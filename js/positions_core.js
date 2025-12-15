@@ -83,22 +83,16 @@ async function loadUserData() {
 async function saveUserData(payload) {
   const user = currentUser();
   if (!user.id) return;
-  const row = await loadUserRaw();
+  const url = `${LC_HOST}/1.1/classes/${USER_CLASS}?where={"owner":"${user.id}"}&limit=1`;
+  const raw = await (await fetch(url, { headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY } })).json();
+  const row = raw.results && raw.results[0] ? raw.results[0] : null;
   const method = row ? 'PUT' : 'POST';
-  const url = row ? `${LC_HOST}/1.1/classes/${USER_CLASS}/${row.objectId}` : `${LC_HOST}/1.1/classes/${USER_CLASS}`;
-  await fetch(url, {
+  const url2 = row ? `${LC_HOST}/1.1/classes/${USER_CLASS}/${row.objectId}` : `${LC_HOST}/1.1/classes/${USER_CLASS}`;
+  await fetch(url2, {
     method,
     headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json', 'X-LC-Session': user.session },
     body: JSON.stringify({ data: JSON.stringify(payload), owner: user.id })
   });
-}
-
-async function loadUserRaw() {
-  const user = currentUser();
-  const url = `${LC_HOST}/1.1/classes/${USER_CLASS}?where={"owner":"${user.id}"}&limit=1`;
-  const res = await fetch(url, { headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY } });
-  const json = await res.json();
-  return json.results && json.results.length ? json.results[0] : null;
 }
 
 async function load() {
@@ -143,7 +137,8 @@ async function hourlyCloudSave() {
 
 async function backupToCloud() {
   try {
-    const row = await cloudGetOne(BACKUP_CLASS);
+    const raw = await (await fetch(`${LC_HOST}/1.1/classes/${BACKUP_CLASS}?limit=1`, { headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY } })).json();
+    const row = raw.results && raw.results[0] ? raw.results[0] : null;
     const method = row ? 'PUT' : 'POST';
     const url = row ? `${LC_HOST}/1.1/classes/${BACKUP_CLASS}/${row.objectId}` : `${LC_HOST}/1.1/classes/${BACKUP_CLASS}`;
     await fetch(url, {
@@ -154,21 +149,9 @@ async function backupToCloud() {
   } catch (e) { console.warn(e); }
 }
 
-async function cloudGetOne(className) {
-  const url = `${LC_HOST}/1.1/classes/${className}?limit=1`;
-  const res = await fetch(url, { headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY } });
-  const json = await res.json();
-  return json.results && json.results.length ? json.results[0] : null;
-}
-
 /* ---------- 工具 ---------- */
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 function fmtDate() { return new Date().toISOString().split('T')[0]; }
-function uploadNow() {
-  const user = currentUser();
-  if (!user.id) { alert('请先登录'); return; }
-  saveUserData(data).then(() => alert('已备份云端')).catch(() => alert('备份失败'));
-}
 
 function objToCSV(list) {
   const head = 'clientName,code,name,quantity,cost,current,dayRate,marketValue,profit,profitPct,pinned,joinDate,categoryName';
