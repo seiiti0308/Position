@@ -1,4 +1,4 @@
-/* ========== 以下全部为 positions_ui.js 完整内容（已移除 role 判断） ========== */
+/* ========== positions_ui.js – 无持仓时也保证刷新栏目按钮颜色 ========== */
 function getCurrentPositions() {
   return data.positions.filter(p => {
     if (p.categoryId !== currentCategoryId) return false;
@@ -9,6 +9,7 @@ function getCurrentPositions() {
     if (start && d < start) return false; if (end && d > end) return false; return true;
   });
 }
+
 function buildMiniCal(y, m) {
   const wrap = document.getElementById('miniCal'); if (!wrap) return;
   wrap.innerHTML = '';
@@ -30,6 +31,7 @@ function buildMiniCal(y, m) {
     wrap.appendChild(btn);
   }
 }
+
 function render() {
   const list = getCurrentPositions(); sortList(list);
   const tb = document.querySelector('#stockTable tbody'); const empty = document.getElementById('emptyTip');
@@ -37,7 +39,7 @@ function render() {
   if (!list.length) {
     if (empty) empty.style.display = 'block';
     document.getElementById('stockTable').style.display = 'table';
-    // 保证没持仓时也刷新按钮颜色/日历
+    /* 保证没持仓时也刷新按钮颜色/日历 */
     renderCategoryTabs();
     buildMiniCal(calYear, calMonth);
     return;
@@ -67,27 +69,36 @@ function render() {
   });
   bindBatchSelect(); syncSelectAllState(); renderCategoryTabs(); buildMiniCal(calYear, calMonth);
 }
+
 function bindBatchSelect() {
   const allCheck = document.getElementById('selectAll');
   if (allCheck) allCheck.onchange = () => { const rowChecks = document.querySelectorAll('.row-check'); rowChecks.forEach(ch => { ch.checked = allCheck.checked; toggleSelectRow(ch.dataset.id, allCheck.checked); }); render(); };
   const rowChecks = document.querySelectorAll('.row-check');
   rowChecks.forEach(ch => { ch.onchange = (e) => { e.stopPropagation(); toggleSelectRow(ch.dataset.id, ch.checked); render(); }; });
 }
+
 function syncSelectAllState(){
   const allBox=document.getElementById('selectAll'); if(!allBox)return;
   const rc=[...document.querySelectorAll('.row-check')];
   allBox.checked=rc.length&&rc.every(c=>c.checked);
 }
+
 function toggleSelectRow(id, checked) { if (checked) selectedSet.add(id); else selectedSet.delete(id); }
+
 function invertSelection() {
   const list = getCurrentPositions();
   list.forEach(p => { if (selectedSet.has(p.id)) selectedSet.delete(p.id); else selectedSet.add(p.id); });
   render();
 }
+
 function handleDelete(globalIdx) { if (selectedSet.size) { batchDelete(); } else { delItem(globalIdx); } }
+
 function handlePin(globalIdx) { if (selectedSet.size) { batchPin(); } else { togglePin(globalIdx); } }
+
 function handleEdit(globalIdx) { if (selectedSet.size) { batchEdit(); } else { editItem(globalIdx); } }
+
 function selectedIdxArr() { return [...selectedSet].map(id => data.positions.findIndex(p => p.id === id)).filter(i => i !== -1); }
+
 function batchDelete() {
   const arr = selectedIdxArr();
   if (!arr.length) return;
@@ -95,6 +106,7 @@ function batchDelete() {
   arr.sort((a, b) => b - a).forEach(i => data.positions.splice(i, 1));
   selectedSet.clear(); save(); render();
 }
+
 function batchPin() {
   const arr = selectedIdxArr();
   if (!arr.length) return;
@@ -104,6 +116,7 @@ function batchPin() {
   data.positions.unshift(...toPin);
   selectedSet.clear(); save(); render();
 }
+
 function batchEdit() {
   const arr = selectedIdxArr();
   if (!arr.length) return;
@@ -112,6 +125,7 @@ function batchEdit() {
   arr.forEach(i => data.positions[i].categoryId = newCatId);
   selectedSet.clear(); save(); render();
 }
+
 function fillCategorySelect(selectedId = currentCategoryId) {
   const sel = document.getElementById('categorySelect'); if (!sel) return;
   sel.innerHTML = '';
@@ -123,6 +137,7 @@ function fillCategorySelect(selectedId = currentCategoryId) {
     sel.appendChild(opt);
   });
 }
+
 function showAddModal() {
   editingIdx = -1;
   closeModal();
@@ -131,7 +146,9 @@ function showAddModal() {
   fillCategorySelect();
   document.getElementById('editModal').style.display = 'block';
 }
+
 function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+
 function resetModal() {
   ['code', 'name', 'cost', 'clientName'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
   document.getElementById('joinDate').value = fmtDate();
@@ -139,6 +156,7 @@ function resetModal() {
   delete document.getElementById('editModal').dataset.dayRate;
   fillCategorySelect(currentCategoryId);
 }
+
 async function autoName() {
   const code = document.getElementById('code').value.trim();
   if (!code) return;
@@ -153,6 +171,7 @@ async function autoName() {
     document.getElementById('editModal').dataset.dayRate = ((parseFloat(arr[3]) - parseFloat(arr[4])) / parseFloat(arr[4]) * 100) || 0;
   } catch (e) { console.error(e); alert('网络异常，未能识别股票代码！'); }
 }
+
 function editItem(globalIdx) {
   editingIdx = globalIdx;
   const it = data.positions[globalIdx];
@@ -169,7 +188,9 @@ function editItem(globalIdx) {
   fillCategorySelect(it.categoryId);
   document.getElementById('editModal').style.display = 'block';
 }
+
 function delItem(globalIdx) { if (confirm('确定删除？')) { data.positions.splice(globalIdx, 1); save(); render(); } }
+
 function savePosition() {
   const clientName = document.getElementById('clientName')?.value.trim() || '';
   const code = document.getElementById('code').value.trim();
@@ -199,6 +220,7 @@ function savePosition() {
   else data.positions.push(item);
   save(); closeModal(); render();
 }
+
 function renderCategoryTabs() {
   const container = document.querySelector('.category-tabs'); if (!container) return;
   container.innerHTML = ''; if (!data.categories.length) { data.categories.push({ id: 'default', name: '投顾' }); currentCategoryId = 'default'; save(); }
@@ -225,6 +247,7 @@ function renderCategoryTabs() {
     container.appendChild(btn);
   });
 }
+
 function renderCategoryModal() {
   const container = document.getElementById('categoryList'); if (!container) return;
   container.innerHTML = '';
@@ -236,11 +259,13 @@ function renderCategoryModal() {
     div.appendChild(input); div.appendChild(delBtn); container.appendChild(div);
   });
 }
+
 function addCategory() {
   const name = document.getElementById('newCatName')?.value.trim();
   if (!name) return alert('请输入栏目名称');
   data.categories.push({ id: uid(), name }); save(); renderCategoryModal(); document.getElementById('newCatName').value = '';
 }
+
 function deleteCategory(id) {
   if (id === 'default' && data.categories.length === 1) return alert('至少保留一个栏目！');
   if (data.positions.some(p => p.categoryId === id))
@@ -250,7 +275,9 @@ function deleteCategory(id) {
   if (currentCategoryId === id) currentCategoryId = data.categories[0]?.id || 'default';
   save(); renderCategoryModal(); render();
 }
+
 function closeExportChoiceModal() { document.getElementById('exportChoiceModal').style.display = 'none'; }
+
 function doExportAll() {
   const start = document.getElementById('exportStart')?.value;
   const end = document.getElementById('exportEnd')?.value;
@@ -267,6 +294,7 @@ function doExportAll() {
   downloadCSV(csv, `positions_${fmtDate()}.csv`);
   closeExportChoiceModal();
 }
+
 function downloadCSV(csv, filename) {
   const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
@@ -274,6 +302,7 @@ function downloadCSV(csv, filename) {
   link.download = filename;
   link.click();
 }
+
 function mapError(errText) {
   const txt = (errText || '').toLowerCase();
   if (txt.includes('already taken')) return '用户名已被占用';
@@ -298,6 +327,7 @@ async function doLogin() {
     document.getElementById('loginTip').textContent = mapError(e.message);
   }
 }
+
 async function doRegister() {
   const u = document.getElementById('loginUser').value.trim();
   const p = document.getElementById('loginPwd').value;
@@ -322,13 +352,16 @@ function openUserMgrModal() {
   document.getElementById('userName').textContent = '账户名：' + username;
   document.getElementById('userMgrModal').style.display = 'flex';
 }
+
 function closeUserMgrModal() {
   document.getElementById('userMgrModal').style.display = 'none';
 }
+
 document.getElementById('innerLogoutBtn').onclick = () => {
   closeUserMgrModal();
   logOut();
 };
+
 document.getElementById('userMgrBtn').onclick = openUserMgrModal;
 
 /* ========== 页面入口 ========== */
@@ -463,6 +496,7 @@ window.onload = async () => {
   const codeInput = document.getElementById('code');
   if (codeInput) codeInput.addEventListener('blur', autoName);
 };
+
 function togglePwd(icon) {
   const input = icon.previousElementSibling;
   if (input.type === 'password') {
