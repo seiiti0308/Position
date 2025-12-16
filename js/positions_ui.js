@@ -1,4 +1,4 @@
-/* ========== 以下全部为 positions_ui.js 完整内容（已移除 role 判断） ========== */
+/* ========== 以下全部为 positions_ui.js 完整内容 ========== */
 function getCurrentPositions() {
   return data.positions.filter(p => {
     if (p.categoryId !== currentCategoryId) return false;
