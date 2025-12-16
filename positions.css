@@ -398,3 +398,13 @@ th.sortable.desc::after {
   font-size: 18px;
   line-height: 1;
 }
+
+/* ==== 屏蔽浏览器自动填充小眼睛/钥匙 ==== */
+input[type="password"]::-webkit-credentials-auto-fill-button,
+input[type="password"]::-webkit-reveal,
+input[type="password"]::-webkit-internal-reveal {
+  visibility: hidden !important;
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
