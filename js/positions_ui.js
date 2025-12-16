@@ -1,4 +1,4 @@
-/* ========== 以下全部为 positions_ui.js 完整内容 ========== */
+/* ========== 以下全部为 positions_ui.js 完整内容（已移除 role 判断） ========== */
 function getCurrentPositions() {
   return data.positions.filter(p => {
     if (p.categoryId !== currentCategoryId) return false;
@@ -34,7 +34,14 @@ function render() {
   const list = getCurrentPositions(); sortList(list);
   const tb = document.querySelector('#stockTable tbody'); const empty = document.getElementById('emptyTip');
   if (!tb) return; tb.innerHTML = '';
-  if (!list.length) { if (empty) empty.style.display = 'block'; document.getElementById('stockTable').style.display = 'table'; return; }
+  if (!list.length) {
+    if (empty) empty.style.display = 'block';
+    document.getElementById('stockTable').style.display = 'table';
+    // 保证没持仓时也刷新按钮颜色/日历
+    renderCategoryTabs();
+    buildMiniCal(calYear, calMonth);
+    return;
+  }
   if (empty) empty.style.display = 'none'; document.getElementById('stockTable').style.display = 'table';
   list.forEach(it => {
     if (searchKey && !`${it.clientName}|${it.code}|${it.name}`.toLowerCase().includes(searchKey)) return;
