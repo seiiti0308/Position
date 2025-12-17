@@ -149,6 +149,22 @@ async function backupToCloud() {
   } catch (e) { console.warn(e); }
 }
 
+/* ---------- 手动立即备份（仅上传，不刷新、不退出） ---------- */
+async function uploadNow() {
+  const user = currentUser();
+  if (!user.id) {               // 没登录就提醒
+    alert('请先登录');
+    return;
+  }
+  try {
+    await saveUserData(data);   // 核心函数：本地→UserData 表
+    localStorage.setItem(BACKUP_KEY, Date.now()); // 顺便把“1h 备份计时”重置
+    alert('已备份到云端');
+  } catch (e) {
+    alert('备份失败：' + e.message);
+  }
+}
+
 /* ---------- 工具 ---------- */
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 function fmtDate() { return new Date().toISOString().split('T')[0]; }
