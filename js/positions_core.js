@@ -26,6 +26,10 @@ const LC_HOST   = 'https://ymxjmquw.lc-cn-n1-shared.com';
 const USER_CLASS = 'UserData';
 const BACKUP_CLASS = 'StockBackup';
 
+/* ---------- LiveQuery ---------- */
+const Realtime = window.Realtime;   // CDN 挂在 window 上
+let liveSub = null;                 // 保存订阅实例，登出时取消
+
 /* ---------- 用户系统 ---------- */
 function currentUser() {
   return { id: localStorage.getItem('lc_userid'), session: localStorage.getItem('lc_session') };
@@ -41,6 +45,8 @@ async function signUp(username, password) {
   const u = await res.json();
   localStorage.setItem('lc_session', u.sessionToken);
   localStorage.setItem('lc_userid', u.objectId);
+  await 抢占会话(u.objectId, u.sessionToken);
+  await 订阅被踢(u.objectId);
   await backgroundSyncCloud();   // ✅ 注册完同步
   return u;
 }
@@ -55,11 +61,14 @@ async function logIn(username, password) {
   const u = await res.json();
   localStorage.setItem('lc_session', u.sessionToken);
   localStorage.setItem('lc_userid', u.objectId);
+  await 抢占会话(u.objectId, u.sessionToken);
+  await 订阅被踢(u.objectId);
   await backgroundSyncCloud();   // ✅ 登录完同步
   return u;
 }
 
 async function logOut() {
+  if (liveSub) { liveSub.unsubscribe(); liveSub = null; }
   const user = currentUser();
   if (user.id) await saveUserData(data); // 退出时强制上传
   localStorage.removeItem('lc_session');
@@ -158,7 +167,7 @@ async function uploadNow() {
   }
   try {
     await saveUserData(data);   // 核心函数：本地→UserData 表
-    localStorage.setItem(BACKUP_KEY, Date.now()); // 顺便把“1h 备份计时”重置
+    localStorage.setItem(BACKUP_KEY', Date.now()); // 顺便把“1h 备份计时”重置
     alert('已备份到云端');
   } catch (e) {
     alert('备份失败：' + e.message);
@@ -236,4 +245,49 @@ async function refreshPrice() {
 
 function startAutoRefresh() {
   if (timer) clearInterval(timer); refreshPrice(); timer = setInterval(refreshPrice, 5000);
+}
+
+/* ---------- 单设备在线：抢占会话 + LiveQuery ---------- */
+async function 抢占会话(userId, sessionToken){
+  const where = { user: { __type: 'Pointer', className: '_User', objectId: userId } };
+  const url   = `${LC_HOST}/1.1/classes/UserSession?where=${encodeURIComponent(JSON.stringify(where))}&limit=1`;
+  const old   = await (await fetch(url, { headers })).json();
+  const row   = old.results?.[0];
+  const method= row ? 'PUT' : 'POST';
+  const url2  = row ? `${LC_HOST}/1.1/classes/UserSession/${row.objectId}` : `${LC_HOST}/1.1/classes/UserSession`;
+  await fetch(url2, {
+    method,
+    headers: { ...headers, 'X-LC-Session': sessionToken },
+    body: JSON.stringify({
+      user: { __type: 'Pointer', className: '_User', objectId: userId },
+      sessionToken,
+      device: localStorage.getItem('deviceId') || 生成设备ID()
+    })
+  });
+}
+
+function 生成设备ID(){
+  let id = localStorage.getItem('deviceId');
+  if (!id) { id = 'web_' + uid(); localStorage.setItem('deviceId', id); }
+  return id;
+}
+
+async function 订阅被踢(userId){
+  if (liveSub) liveSub.unsubscribe();
+  const realtime = new Realtime({
+    appId: LC_APP_ID,
+    appKey: LC_APP_KEY,
+    serverURL: LC_HOST,
+    wsURL: 'wss://ymxjmquw.im.cn-n1.lncldapi.com'
+  });
+  const client = await realtime.createClient();
+  const query  = new AV.Query('UserSession').equalTo('user', AV.Object.createWithoutData('_User', userId));
+  liveSub = await client.subscribe(query);
+  liveSub.on('update', payload => {
+    if (payload.object.get('sessionToken') !== currentUser().session) {
+      alert('账号在其他设备登录，您已被强制下线');
+      logOut();
+    }
+  });
+  liveSub.on('delete', () => logOut());
 }
