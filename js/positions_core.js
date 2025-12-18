@@ -25,6 +25,7 @@ const LC_APP_KEY = '5mV06bEtrGtkN8PVaf0i4kDK';
 const LC_HOST   = 'https://ymxjmquw.lc-cn-n1-shared.com';
 const USER_CLASS = 'UserData';
 const BACKUP_CLASS = 'StockBackup';
+const headers = { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY };
 
 /* ---------- LiveQuery ---------- */
 const Realtime = window.Realtime;   // CDN 挂在 window 上
@@ -291,5 +292,6 @@ async function 订阅被踢(userId){
   });
   liveSub.on('delete', () => logOut());
 }
+
 
 
