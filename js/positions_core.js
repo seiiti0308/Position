@@ -83,7 +83,8 @@ async function logOut() {
 async function loadUserData() {
   const user = currentUser();
   if (!user.id) return null;
-  const url = `${LC_HOST}/1.1/classes/${USER_CLASS}?where={"owner":"${user.id}"}&limit=1`;
+  const whereStr = JSON.stringify(where);
+  const url = `${LC_HOST}/1.1/classes/UserSession?where=${encodeURIComponent(whereStr)}&limit=1`;
   const res = await fetch(url, { headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY } });
   const json = await res.json();
   if (json.results && json.results.length) return JSON.parse(json.results[0].data);
@@ -292,6 +293,7 @@ async function 订阅被踢(userId){
   });
   liveSub.on('delete', () => logOut());
 }
+
 
 
 
