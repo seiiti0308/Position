@@ -1,12 +1,7 @@
-/* ========== 纯前端 + LeanCloud 用户系统 + 用户数据隔离
-│ 注册/登录/会话保持 │ 本地+云端双存储 │ 实时行情(5s) │ CSV导入/导出 │ 批量删/置顶/改栏目
-│ 栏目拖拽排序 │ 反选+全选 │ 置顶永远最前 │ 9字段排序 │ 关键词+日期区间筛选
-│ 小眼睛密码可见 │ 错误中文映射 │ 二次确认 │ 移动端适配 │ 零依赖纯原生
-========== */
+/* ========== 纯前端 + LeanCloud 用户系统 + 用户数据隔离│ 注册/登录/会话保持 │ 本地+云端双存储 │ 实时行情(5s) │ CSV导入/导出 │ 批量删/置顶/改栏目│ 栏目拖拽排序 │ 反选+全选 │ 置顶永远最前 │ 9字段排序 │ 关键词+日期区间筛选│ 小眼睛密码可见 │ 错误中文映射 │ 二次确认 │ 移动端适配 │ 零依赖纯原生========== */
 const STORAGE_KEY = 'stockPosReal_v2';
-const BACKUP_KEY  = 'stockBackup_lastTime';
+const BACKUP_KEY = 'stockBackup_lastTime';
 const BACKUP_INTERVAL = 60 * 60 * 1000;
-
 let data = { categories: [{ id: 'default', name: '投顾' }], positions: [] };
 let currentCategoryId = 'default';
 let editingIdx = -1;
@@ -22,18 +17,24 @@ const selectedSet = new Set();
 /* ---------- LeanCloud 配置 ---------- */
 const LC_APP_ID = 'ymXJMQuwOQZ5A8ouAD9cO6Vc-gzGzoHsz';
 const LC_APP_KEY = '5mV06bEtrGtkN8PVaf0i4kDK';
-const LC_HOST   = 'https://ymxjmquw.lc-cn-n1-shared.com';
+const LC_HOST = 'https://ymxjmquw.lc-cn-n1-shared.com';
 const USER_CLASS = 'UserData';
 const BACKUP_CLASS = 'StockBackup';
 const headers = { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY };
 
-/* ---------- LiveQuery ---------- */
-const Realtime = AV.Realtime;   // CDN 挂在 window 上
-let liveSub = null;                 // 保存订阅实例，登出时取消
+/* ---------- LiveQuery 实例 ---------- */
+let realtimeClient = null;
+let liveQuerySub = null;
 
 /* ---------- 用户系统 ---------- */
-function currentUser() {
-  return { id: localStorage.getItem('lc_userid'), session: localStorage.getItem('lc_session') };
+function currentUser() { return { id: localStorage.getItem('lc_userid'), session: localStorage.getItem('lc_session') }; }
+
+// 动态加载 Realtime SDK（v5）
+async function loadRealtimeSDK() {
+  if (window.Realtime) return window.Realtime;
+  const module = await import('https://esm.sh/leancloud-realtime@5.5.0?bundle');
+  window.Realtime = module.Realtime;
+  return module.Realtime;
 }
 
 async function signUp(username, password) {
@@ -47,8 +48,8 @@ async function signUp(username, password) {
   localStorage.setItem('lc_session', u.sessionToken);
   localStorage.setItem('lc_userid', u.objectId);
   await 抢占会话(u.objectId, u.sessionToken);
-  await 订阅被踢(u.objectId);
-  await backgroundSyncCloud();   // ✅ 注册完同步
+  await 订阅被踢(u.objectId, u.sessionToken); // ✅ 新增
+  await backgroundSyncCloud();
   return u;
 }
 
@@ -63,15 +64,23 @@ async function logIn(username, password) {
   localStorage.setItem('lc_session', u.sessionToken);
   localStorage.setItem('lc_userid', u.objectId);
   await 抢占会话(u.objectId, u.sessionToken);
-  await 订阅被踢(u.objectId);
-  await backgroundSyncCloud();   // ✅ 登录完同步
+  await 订阅被踢(u.objectId, u.sessionToken); // ✅ 新增
+  await backgroundSyncCloud();
   return u;
 }
 
 async function logOut() {
-  if (liveSub) { liveSub.unsubscribe(); liveSub = null; }
+  // 清理实时订阅
+  if (liveQuerySub) {
+    liveQuerySub.unsubscribe();
+    liveQuerySub = null;
+  }
+  if (realtimeClient) {
+    realtimeClient.close();
+    realtimeClient = null;
+  }
   const user = currentUser();
-  if (user.id) await saveUserData(data); // 退出时强制上传
+  if (user.id) await saveUserData(data);
   localStorage.removeItem('lc_session');
   localStorage.removeItem('lc_userid');
   localStorage.removeItem(STORAGE_KEY);
@@ -83,8 +92,9 @@ async function logOut() {
 async function loadUserData() {
   const user = currentUser();
   if (!user.id) return null;
+  const where = { owner: user.id }; // ✅ 修复：where 未定义
   const whereStr = JSON.stringify(where);
-  const url = `${LC_HOST}/1.1/classes/UserSession?where=${encodeURIComponent(whereStr)}&limit=1`;
+  const url = `${LC_HOST}/1.1/classes/${USER_CLASS}?where=${encodeURIComponent(whereStr)}&limit=1`;
   const res = await fetch(url, { headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY } });
   const json = await res.json();
   if (json.results && json.results.length) return JSON.parse(json.results[0].data);
@@ -99,11 +109,7 @@ async function saveUserData(payload) {
   const row = raw.results && raw.results[0] ? raw.results[0] : null;
   const method = row ? 'PUT' : 'POST';
   const url2 = row ? `${LC_HOST}/1.1/classes/${USER_CLASS}/${row.objectId}` : `${LC_HOST}/1.1/classes/${USER_CLASS}`;
-  await fetch(url2, {
-    method,
-    headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json', 'X-LC-Session': user.session },
-    body: JSON.stringify({ data: JSON.stringify(payload), owner: user.id })
-  });
+  await fetch(url2, { method, headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json', 'X-LC-Session': user.session }, body: JSON.stringify({ data: JSON.stringify(payload), owner: user.id }) });
 }
 
 async function load() {
@@ -117,11 +123,11 @@ async function backgroundSyncCloud() {
   const user = currentUser();
   if (!user.id) return;
   const cloud = await loadUserData();
-  if (cloud) {                                    // 云端有 → 覆盖
+  if (cloud) {
     data = cloud;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
     render();
-  } else {                                        // 云端无 → 看本地要不要上传
+  } else {
     if (data.positions.length) saveUserData(data).catch(console.warn);
   }
 }
@@ -152,28 +158,19 @@ async function backupToCloud() {
     const row = raw.results && raw.results[0] ? raw.results[0] : null;
     const method = row ? 'PUT' : 'POST';
     const url = row ? `${LC_HOST}/1.1/classes/${BACKUP_CLASS}/${row.objectId}` : `${LC_HOST}/1.1/classes/${BACKUP_CLASS}`;
-    await fetch(url, {
-      method,
-      headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: JSON.stringify(data), updatedAt: new Date().toISOString() })
-    });
+    await fetch(url, { method, headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ data: JSON.stringify(data), updatedAt: new Date().toISOString() }) });
   } catch (e) { console.warn(e); }
 }
 
 /* ---------- 手动立即备份（仅上传，不刷新、不退出） ---------- */
 async function uploadNow() {
   const user = currentUser();
-  if (!user.id) {               // 没登录就提醒
-    alert('请先登录');
-    return;
-  }
+  if (!user.id) { alert('请先登录'); return; }
   try {
-    await saveUserData(data);   // 核心函数：本地→UserData 表
-   localStorage.setItem('BACKUP_KEY', Date.now()); // 顺便把“1h 备份计时”重置
+    await saveUserData(data);
+    localStorage.setItem('BACKUP_KEY', Date.now());
     alert('已备份到云端');
-  } catch (e) {
-    alert('备份失败：' + e.message);
-  }
+  } catch (e) { alert('备份失败：' + e.message); }
 }
 
 /* ---------- 工具 ---------- */
@@ -184,9 +181,8 @@ function objToCSV(list) {
   const head = 'clientName,code,name,quantity,cost,current,dayRate,marketValue,profit,profitPct,pinned,joinDate,categoryName';
   const rows = list.map(r => {
     const catName = data.categories.find(c => c.id === r.categoryId)?.name || '投顾';
-    return [r.clientName, r.code, r.name, r.quantity, r.cost, r.current, r.dayRate,
-            r.marketValue, r.profit, r.profitPct, r.pinned ? 1 : 0, r.joinDate, catName]
-           .map(v => (v + '').includes(',') ? `"${v}"` : v).join(',');
+    return [r.clientName, r.code, r.name, r.quantity, r.cost, r.current, r.dayRate, r.marketValue, r.profit, r.profitPct, r.pinned ? 1 : 0, r.joinDate, catName]
+      .map(v => (v + '').includes(',') ? `"${v}"` : v).join(',');
   });
   return [head, ...rows].join('\n');
 }
@@ -195,23 +191,38 @@ function csvToObj(str) {
   return str.trim().split('\n').slice(1).map(l => {
     const val = l.split(',').map(v => v.replace(/^"|"$/g, ''));
     return {
-      clientName: val[0], code: val[1], name: val[2], quantity: Number(val[3]) || 0,
-      cost: Number(val[4]) || 0, current: Number(val[5]) || 0, dayRate: Number(val[6]) || 0,
-      marketValue: Number(val[7]) || 0, profit: Number(val[8]) || 0, profitPct: Number(val[9]) || 0,
-      pinned: (val[10] || '0') === '1', joinDate: val[11] || fmtDate(), categoryName: val[12] || '投顾', id: uid()
+      clientName: val[0],
+      code: val[1],
+      name: val[2],
+      quantity: Number(val[3]) || 0,
+      cost: Number(val[4]) || 0,
+      current: Number(val[5]) || 0,
+      dayRate: Number(val[6]) || 0,
+      marketValue: Number(val[7]) || 0,
+      profit: Number(val[8]) || 0,
+      profitPct: Number(val[9]) || 0,
+      pinned: (val[10] || '0') === '1',
+      joinDate: val[11] || fmtDate(),
+      categoryName: val[12] || '投顾',
+      id: uid()
     };
   });
 }
 
 function sortList(list) {
-  if (!sortKey) { list.sort((a, b) => (b.pinned || 0) - (a.pinned || 0)); return; }
+  if (!sortKey) {
+    list.sort((a, b) => (b.pinned || 0) - (a.pinned || 0));
+    return;
+  }
   const asc = sortDir === 'asc' ? 1 : -1;
   list.sort((a, b) => {
     let va = a[sortKey], vb = b[sortKey];
     if (['current','dayRate','quantity','profit','profitPct','marketValue','cost'].includes(sortKey)) {
       va = parseFloat(va) || 0; vb = parseFloat(vb) || 0;
     }
-    if (va > vb) return asc; if (va < vb) return -asc; return 0;
+    if (va > vb) return asc;
+    if (va < vb) return -asc;
+    return 0;
   });
 }
 
@@ -246,26 +257,20 @@ async function refreshPrice() {
 }
 
 function startAutoRefresh() {
-  if (timer) clearInterval(timer); refreshPrice(); timer = setInterval(refreshPrice, 5000);
+  if (timer) clearInterval(timer);
+  refreshPrice();
+  timer = setInterval(refreshPrice, 5000);
 }
 
 /* ---------- 单设备在线：抢占会话 + LiveQuery ---------- */
 async function 抢占会话(userId, sessionToken){
   const where = { user: { __type: 'Pointer', className: '_User', objectId: userId } };
-  const url   = `${LC_HOST}/1.1/classes/UserSession?where=${encodeURIComponent(JSON.stringify(where))}&limit=1`;
-  const old   = await (await fetch(url, { headers })).json();
-  const row   = old.results?.[0];
+  const url = `${LC_HOST}/1.1/classes/UserSession?where=${encodeURIComponent(JSON.stringify(where))}&limit=1`;
+  const old = await (await fetch(url, { headers })).json();
+  const row = old.results?.[0];
   const method= row ? 'PUT' : 'POST';
-  const url2  = row ? `${LC_HOST}/1.1/classes/UserSession/${row.objectId}` : `${LC_HOST}/1.1/classes/UserSession`;
-  await fetch(url2, {
-    method,
-    headers: { ...headers, 'X-LC-Session': sessionToken },
-    body: JSON.stringify({
-      user: { __type: 'Pointer', className: '_User', objectId: userId },
-      sessionToken,
-      device: localStorage.getItem('deviceId') || 生成设备ID()
-    })
-  });
+  const url2 = row ? `${LC_HOST}/1.1/classes/UserSession/${row.objectId}` : `${LC_HOST}/1.1/classes/UserSession`;
+  await fetch(url2, { method, headers: { ...headers, 'X-LC-Session': sessionToken }, body: JSON.stringify({ user: { __type: 'Pointer', className: '_User', objectId: userId }, sessionToken, device: localStorage.getItem('deviceId') || 生成设备ID() }) });
 }
 
 function 生成设备ID(){
@@ -274,30 +279,41 @@ function 生成设备ID(){
   return id;
 }
 
-async function 订阅被踢(userId){
-  if (liveSub) liveSub.unsubscribe();
-  const realtime = new Realtime({
-    appId: LC_APP_ID,
-    appKey: LC_APP_KEY,
-    serverURL: LC_HOST,
-    wsURL: 'wss://ymxjmquw.im.cn-n1.lncldapi.com'
-  });
-  const client = await realtime.createClient();
-  const query  = new AV.Query('UserSession').equalTo('user', AV.Object.createWithoutData('_User', userId));
-  liveSub = await client.subscribe(query);
-  liveSub.on('update', payload => {
-    if (payload.object.get('sessionToken') !== currentUser().session) {
-      alert('账号在其他设备登录，您已被强制下线');
+// ✅ 重写：使用 v5 Realtime + LiveQuery
+async function 订阅被踢(userId, sessionToken){
+  if (liveQuerySub) {
+    liveQuerySub.unsubscribe();
+    liveQuerySub = null;
+  }
+  if (realtimeClient) {
+    realtimeClient.close();
+    realtimeClient = null;
+  }
+
+  try {
+    const Realtime = await loadRealtimeSDK();
+    realtimeClient = new Realtime({
+      appId: LC_APP_ID,
+      appKey: LC_APP_KEY,
+      server: 'cn-n1',
+      plugins: [Realtime.LiveQueryPlugin]
+    });
+
+    const client = await realtimeClient.createClient();
+    const query = new AV.Query('UserSession').equalTo('user', AV.Object.createWithoutData('_User', userId));
+    liveQuerySub = client.subscribe(query);
+
+    liveQuerySub.on('update', (object) => {
+      if (object.get('sessionToken') !== sessionToken) {
+        alert('账号在其他设备登录，您已被强制下线');
+        logOut();
+      }
+    });
+
+    liveQuerySub.on('delete', () => {
       logOut();
-    }
-  });
-  liveSub.on('delete', () => logOut());
+    });
+  } catch (error) {
+    console.error('LiveQuery 订阅失败:', error);
+  }
 }
-
-
-
-
-
-
-
-
