@@ -143,11 +143,21 @@
     数据由 <a href="https://leancloud.cn" target="_blank" rel="noopener">LeanCloud</a> 提供云端支持。
   </footer>
 <script src="js/av-min.js"></script>
-  <script src="js/realtime.browser.min.js"></script>
+<!-- 实时通信 SDK（使用 ES 模块） -->
+<script type="module">
+  import { Realtime } from 'https://cdn.skypack.dev/leancloud-realtime@5.0.0-rc.8';
+
+  // 将 Realtime 挂到 window，供你的旧代码使用
+  window.Realtime = Realtime;
+
+  // 初始化你的业务逻辑（可选）
+  console.log('Realtime loaded:', Realtime);
+</script>
 <script src="js/positions_core.js"></script>
 <script src="js/positions_ui.js"></script>
 </body>
 </html>
+
 
 
 
