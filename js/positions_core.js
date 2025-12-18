@@ -13,7 +13,6 @@ let calYear = new Date().getFullYear();
 let calMonth = new Date().getMonth() + 1;
 const WEEK_HEAD = ['日','一','二','三','四','五','六'];
 const selectedSet = new Set();
-
 /* ---------- LeanCloud 配置 ---------- */
 const LC_APP_ID = 'ymXJMQuwOQZ5A8ouAD9cO6Vc-gzGzoHsz';
 const LC_APP_KEY = '5mV06bEtrGtkN8PVaf0i4kDK';
@@ -21,14 +20,11 @@ const LC_HOST = 'https://ymxjmquw.lc-cn-n1-shared.com';
 const USER_CLASS = 'UserData';
 const BACKUP_CLASS = 'StockBackup';
 const headers = { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY };
-
 /* ---------- LiveQuery 实例 ---------- */
 let realtimeClient = null;
 let liveQuerySub = null;
-
 /* ---------- 用户系统 ---------- */
 function currentUser() { return { id: localStorage.getItem('lc_userid'), session: localStorage.getItem('lc_session') }; }
-
 // 动态加载 Realtime SDK（v5）
 async function loadRealtimeSDK() {
   if (window.Realtime) return window.Realtime;
@@ -36,7 +32,6 @@ async function loadRealtimeSDK() {
   window.Realtime = module.Realtime;
   return module.Realtime;
 }
-
 async function signUp(username, password) {
   const res = await fetch(`${LC_HOST}/1.1/users`, {
     method: 'POST',
@@ -52,7 +47,6 @@ async function signUp(username, password) {
   await backgroundSyncCloud();
   return u;
 }
-
 async function logIn(username, password) {
   const res = await fetch(`${LC_HOST}/1.1/login`, {
     method: 'POST',
@@ -68,7 +62,6 @@ async function logIn(username, password) {
   await backgroundSyncCloud();
   return u;
 }
-
 async function logOut() {
   // 清理实时订阅
   if (liveQuerySub) {
@@ -87,7 +80,6 @@ async function logOut() {
   localStorage.removeItem(BACKUP_KEY);
   location.reload();
 }
-
 /* ---------- 数据读写 ---------- */
 async function loadUserData() {
   const user = currentUser();
@@ -100,7 +92,6 @@ async function loadUserData() {
   if (json.results && json.results.length) return JSON.parse(json.results[0].data);
   return null;
 }
-
 async function saveUserData(payload) {
   const user = currentUser();
   if (!user.id) return;
@@ -109,15 +100,17 @@ async function saveUserData(payload) {
   const row = raw.results && raw.results[0] ? raw.results[0] : null;
   const method = row ? 'PUT' : 'POST';
   const url2 = row ? `${LC_HOST}/1.1/classes/${USER_CLASS}/${row.objectId}` : `${LC_HOST}/1.1/classes/${USER_CLASS}`;
-  await fetch(url2, { method, headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json', 'X-LC-Session': user.session }, body: JSON.stringify({ data: JSON.stringify(payload), owner: user.id }) });
+  await fetch(url2, {
+    method,
+    headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json', 'X-LC-Session': user.session },
+    body: JSON.stringify({ data: JSON.stringify(payload), owner: user.id })
+  });
 }
-
 async function load() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (raw) try { return JSON.parse(raw); } catch {}
   return { categories: [{ id: 'default', name: '投顾' }], positions: [] };
 }
-
 /* ✅ 关键修复：云端有数据就强制覆盖本地 */
 async function backgroundSyncCloud() {
   const user = currentUser();
@@ -131,12 +124,10 @@ async function backgroundSyncCloud() {
     if (data.positions.length) saveUserData(data).catch(console.warn);
   }
 }
-
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   checkBackup();
 }
-
 function checkBackup() {
   const now = Date.now();
   const last = parseInt(localStorage.getItem(BACKUP_KEY) || '0', 10);
@@ -145,23 +136,24 @@ function checkBackup() {
     localStorage.setItem(BACKUP_KEY, String(now));
   }
 }
-
 async function hourlyCloudSave() {
   const user = currentUser();
   if (!user.id) return;
   try { await saveUserData(data); } catch (e) { console.warn(e); }
 }
-
 async function backupToCloud() {
   try {
     const raw = await (await fetch(`${LC_HOST}/1.1/classes/${BACKUP_CLASS}?limit=1`, { headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY } })).json();
     const row = raw.results && raw.results[0] ? raw.results[0] : null;
     const method = row ? 'PUT' : 'POST';
     const url = row ? `${LC_HOST}/1.1/classes/${BACKUP_CLASS}/${row.objectId}` : `${LC_HOST}/1.1/classes/${BACKUP_CLASS}`;
-    await fetch(url, { method, headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ data: JSON.stringify(data), updatedAt: new Date().toISOString() }) });
+    await fetch(url, {
+      method,
+      headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: JSON.stringify(data), updatedAt: new Date().toISOString() })
+    });
   } catch (e) { console.warn(e); }
 }
-
 /* ---------- 手动立即备份（仅上传，不刷新、不退出） ---------- */
 async function uploadNow() {
   const user = currentUser();
@@ -172,11 +164,9 @@ async function uploadNow() {
     alert('已备份到云端');
   } catch (e) { alert('备份失败：' + e.message); }
 }
-
 /* ---------- 工具 ---------- */
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 function fmtDate() { return new Date().toISOString().split('T')[0]; }
-
 function objToCSV(list) {
   const head = 'clientName,code,name,quantity,cost,current,dayRate,marketValue,profit,profitPct,pinned,joinDate,categoryName';
   const rows = list.map(r => {
@@ -186,7 +176,6 @@ function objToCSV(list) {
   });
   return [head, ...rows].join('\n');
 }
-
 function csvToObj(str) {
   return str.trim().split('\n').slice(1).map(l => {
     const val = l.split(',').map(v => v.replace(/^"|"$/g, ''));
@@ -208,7 +197,6 @@ function csvToObj(str) {
     };
   });
 }
-
 function sortList(list) {
   if (!sortKey) {
     list.sort((a, b) => (b.pinned || 0) - (a.pinned || 0));
@@ -225,7 +213,6 @@ function sortList(list) {
     return 0;
   });
 }
-
 function bindSortEvent() {
   document.querySelectorAll('th.sortable').forEach(th => {
     th.addEventListener('click', () => {
@@ -238,7 +225,6 @@ function bindSortEvent() {
     });
   });
 }
-
 async function refreshPrice() {
   if (!data.positions.length) return;
   for (const it of data.positions) {
@@ -255,13 +241,11 @@ async function refreshPrice() {
   }
   save(); render();
 }
-
 function startAutoRefresh() {
   if (timer) clearInterval(timer);
   refreshPrice();
   timer = setInterval(refreshPrice, 5000);
 }
-
 /* ---------- 单设备在线：抢占会话 + LiveQuery ---------- */
 async function 抢占会话(userId, sessionToken){
   const where = { user: { __type: 'Pointer', className: '_User', objectId: userId } };
@@ -270,15 +254,21 @@ async function 抢占会话(userId, sessionToken){
   const row = old.results?.[0];
   const method= row ? 'PUT' : 'POST';
   const url2 = row ? `${LC_HOST}/1.1/classes/UserSession/${row.objectId}` : `${LC_HOST}/1.1/classes/UserSession`;
-  await fetch(url2, { method, headers: { ...headers, 'X-LC-Session': sessionToken }, body: JSON.stringify({ user: { __type: 'Pointer', className: '_User', objectId: userId }, sessionToken, device: localStorage.getItem('deviceId') || 生成设备ID() }) });
+  await fetch(url2, {
+    method,
+    headers: { ...headers, 'X-LC-Session': sessionToken, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      user: { __type: 'Pointer', className: '_User', objectId: userId },
+      sessionToken,
+      device: localStorage.getItem('deviceId') || 生成设备ID()
+    })
+  });
 }
-
 function 生成设备ID(){
   let id = localStorage.getItem('deviceId');
   if (!id) { id = 'web_' + uid(); localStorage.setItem('deviceId', id); }
   return id;
 }
-
 // ✅ 重写：使用 v5 Realtime + LiveQuery
 async function 订阅被踢(userId, sessionToken){
   if (liveQuerySub) {
