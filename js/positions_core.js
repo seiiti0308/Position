@@ -34,12 +34,35 @@ function currentUser() {
   };
 }
 
-// 动态加载 Realtime SDK（v5）
+// ✅ 修复版：使用 jsDelivr CDN 加载 Realtime SDK（避免 esm.sh 404）
 async function loadRealtimeSDK() {
   if (window.Realtime) return window.Realtime;
-  const module = await import('https://esm.sh/leancloud-realtime@5.5.0?bundle');
-  window.Realtime = module.Realtime;
-  return module.Realtime;
+
+  return new Promise((resolve, reject) => {
+    // 检查是否已加载脚本
+    if (document.querySelector('#leancloud-realtime-sdk')) {
+      const check = () => {
+        if (window.Realtime) resolve(window.Realtime);
+        else setTimeout(check, 50);
+      };
+      check();
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.id = 'leancloud-realtime-sdk';
+    script.src = 'https://cdn.jsdelivr.net/npm/leancloud-realtime@5.5.0/dist/leancloud-realtime.min.js';
+    script.async = false;
+    script.onload = () => {
+      console.log('LeanCloud Realtime SDK 加载成功');
+      resolve(window.Realtime);
+    };
+    script.onerror = () => {
+      console.error('LeanCloud Realtime SDK 加载失败');
+      reject(new Error('Realtime SDK 加载失败'));
+    };
+    document.head.appendChild(script);
+  });
 }
 
 async function signUp(username, password) {
