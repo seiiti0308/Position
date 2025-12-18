@@ -27,42 +27,18 @@ let realtimeClient = null;
 let liveQuerySub = null;
 
 /* ---------- 用户系统 ---------- */
-function currentUser() {
-  return {
-    id: localStorage.getItem('lc_userid'),
-    session: localStorage.getItem('lc_session')
-  };
-}
+function currentUser() { return { id: localStorage.getItem('lc_userid'), session: localStorage.getItem('lc_session') }; }
 
-// ✅ 修复版：使用 jsDelivr CDN 加载 Realtime SDK（避免 esm.sh 404）
+// ✅ 替换为直接使用已加载的 AV SDK（由 HTML 引入）
 async function loadRealtimeSDK() {
-  if (window.Realtime) return window.Realtime;
-
-  return new Promise((resolve, reject) => {
-    // 检查是否已加载脚本
-    if (document.querySelector('#leancloud-realtime-sdk')) {
-      const check = () => {
-        if (window.Realtime) resolve(window.Realtime);
-        else setTimeout(check, 50);
-      };
-      check();
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.id = 'leancloud-realtime-sdk';
-    script.src = 'https://cdn.jsdelivr.net/npm/leancloud-realtime@5.5.0/dist/leancloud-realtime.min.js';
-    script.async = false;
-    script.onload = () => {
-      console.log('LeanCloud Realtime SDK 加载成功');
-      resolve(window.Realtime);
-    };
-    script.onerror = () => {
-      console.error('LeanCloud Realtime SDK 加载失败');
-      reject(new Error('Realtime SDK 加载失败'));
-    };
-    document.head.appendChild(script);
-  });
+  if (!window.AV) {
+    throw new Error('❌ AV SDK 未加载，请在 HTML 中引入 https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.2/dist/av.min.js');
+  }
+  if (!window.AV.LiveQueryPlugin) {
+    throw new Error('❌ 当前 AV SDK 不包含 LiveQueryPlugin');
+  }
+  window.Realtime = window.AV.Realtime;
+  return window.Realtime;
 }
 
 async function signUp(username, password) {
@@ -180,7 +156,11 @@ function checkBackup() {
 async function hourlyCloudSave() {
   const user = currentUser();
   if (!user.id) return;
-  try { await saveUserData(data); } catch (e) { console.warn(e); }
+  try {
+    await saveUserData(data);
+  } catch (e) {
+    console.warn(e);
+  }
 }
 
 async function backupToCloud() {
@@ -194,7 +174,9 @@ async function backupToCloud() {
       headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify({ data: JSON.stringify(data), updatedAt: new Date().toISOString() })
     });
-  } catch (e) { console.warn(e); }
+  } catch (e) {
+    console.warn(e);
+  }
 }
 
 async function uploadNow() {
@@ -204,13 +186,14 @@ async function uploadNow() {
     await saveUserData(data);
     localStorage.setItem('BACKUP_KEY', Date.now());
     alert('已备份到云端');
-  } catch (e) { alert('备份失败：' + e.message); }
+  } catch (e) {
+    alert('备份失败：' + e.message);
+  }
 }
 
 /* ---------- 工具 ---------- */
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
 function fmtDate() { return new Date().toISOString().split('T')[0]; }
-
 function objToCSV(list) {
   const head = 'clientName,code,name,quantity,cost,current,dayRate,marketValue,profit,profitPct,pinned,joinDate,categoryName';
   const rows = list.map(r => {
@@ -220,7 +203,6 @@ function objToCSV(list) {
   });
   return [head, ...rows].join('\n');
 }
-
 function csvToObj(str) {
   return str.trim().split('\n').slice(1).map(l => {
     const val = l.split(',').map(v => v.replace(/^"|"$/g, ''));
@@ -242,7 +224,6 @@ function csvToObj(str) {
     };
   });
 }
-
 function sortList(list) {
   if (!sortKey) {
     list.sort((a, b) => (b.pinned || 0) - (a.pinned || 0));
@@ -252,27 +233,31 @@ function sortList(list) {
   list.sort((a, b) => {
     let va = a[sortKey], vb = b[sortKey];
     if (['current','dayRate','quantity','profit','profitPct','marketValue','cost'].includes(sortKey)) {
-      va = parseFloat(va) || 0; vb = parseFloat(vb) || 0;
+      va = parseFloat(va) || 0;
+      vb = parseFloat(vb) || 0;
     }
     if (va > vb) return asc;
     if (va < vb) return -asc;
     return 0;
   });
 }
-
 function bindSortEvent() {
   document.querySelectorAll('th.sortable').forEach(th => {
     th.addEventListener('click', () => {
       const key = th.dataset.key;
-      if (sortKey !== key) { sortKey = key; sortDir = 'asc'; }
-      else { sortDir = sortDir === 'asc' ? 'desc' : (sortDir === 'desc' ? '' : 'asc'); if (!sortDir) sortKey = ''; }
+      if (sortKey !== key) {
+        sortKey = key;
+        sortDir = 'asc';
+      } else {
+        sortDir = sortDir === 'asc' ? 'desc' : (sortDir === 'desc' ? '' : 'asc');
+        if (!sortDir) sortKey = '';
+      }
       document.querySelectorAll('th.sortable').forEach(el => el.classList.remove('asc', 'desc'));
       if (sortDir) th.classList.add(sortDir);
       render();
     });
   });
 }
-
 async function refreshPrice() {
   if (!data.positions.length) return;
   for (const it of data.positions) {
@@ -282,14 +267,16 @@ async function refreshPrice() {
       const arr = new TextDecoder('gbk').decode(buf).split('~');
       it.current = parseFloat(arr[3]) || it.current || it.cost || 0;
       it.dayRate = ((parseFloat(arr[3]) - parseFloat(arr[4])) / parseFloat(arr[4]) * 100) || 0;
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+    }
     it.marketValue = it.current * it.quantity;
     it.profit = (it.current - it.cost) * it.quantity;
     it.profitPct = it.cost ? ((it.current - it.cost) / it.cost * 100) : 0;
   }
-  save(); render();
+  save();
+  render();
 }
-
 function startAutoRefresh() {
   if (timer) clearInterval(timer);
   refreshPrice();
@@ -324,7 +311,7 @@ function 生成设备ID(){
   return id;
 }
 
-// ✅ 使用 v5 Realtime + LiveQuery（自动使用 im.cn-n1.lncldapi.com）
+// ✅ 使用 v4 Realtime + LiveQuery（通过 av.min.js 提供）
 async function 订阅被踢(userId, sessionToken){
   if (liveQuerySub) {
     liveQuerySub.unsubscribe();
@@ -334,28 +321,23 @@ async function 订阅被踢(userId, sessionToken){
     realtimeClient.close();
     realtimeClient = null;
   }
-
   try {
-    const Realtime = await loadRealtimeSDK();
-    // ✅ LeanCloud Realtime v5 会自动根据 appId 路由到正确的 im.cn-n1.lncldapi.com
+    const Realtime = await loadRealtimeSDK(); // 直接使用已加载的 AV.Realtime
     realtimeClient = new Realtime({
       appId: LC_APP_ID,
       appKey: LC_APP_KEY,
       server: 'cn-n1', // 区域必须为 cn-n1
       plugins: [Realtime.LiveQueryPlugin]
     });
-
     const client = await realtimeClient.createClient();
     const query = new AV.Query('UserSession').equalTo('user', AV.Object.createWithoutData('_User', userId));
     liveQuerySub = client.subscribe(query);
-
     liveQuerySub.on('update', (object) => {
       if (object.get('sessionToken') !== sessionToken) {
         alert('账号在其他设备登录，您已被强制下线');
         logOut();
       }
     });
-
     liveQuerySub.on('delete', () => {
       logOut();
     });
