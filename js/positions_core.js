@@ -167,7 +167,7 @@ async function uploadNow() {
   }
   try {
     await saveUserData(data);   // 核心函数：本地→UserData 表
-    localStorage.setItem(BACKUP_KEY', Date.now()); // 顺便把“1h 备份计时”重置
+   localStorage.setItem(BACKUP_KEY, Date.now()); // 顺便把“1h 备份计时”重置
     alert('已备份到云端');
   } catch (e) {
     alert('备份失败：' + e.message);
@@ -291,3 +291,4 @@ async function 订阅被踢(userId){
   });
   liveSub.on('delete', () => logOut());
 }
+
