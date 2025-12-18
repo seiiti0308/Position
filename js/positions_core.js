@@ -28,7 +28,7 @@ const BACKUP_CLASS = 'StockBackup';
 const headers = { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY };
 
 /* ---------- LiveQuery ---------- */
-const Realtime = window.AVRealtime;   // CDN 挂在 window 上
+const Realtime = window.Realtime;   // CDN 挂在 window 上
 let liveSub = null;                 // 保存订阅实例，登出时取消
 
 /* ---------- 用户系统 ---------- */
@@ -293,6 +293,7 @@ async function 订阅被踢(userId){
   });
   liveSub.on('delete', () => logOut());
 }
+
 
 
 
