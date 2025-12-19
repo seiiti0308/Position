@@ -20,39 +20,26 @@ const LC_APP_KEY = '5mV06bEtrGtkN8PVaf0i4kDK';
 const LC_HOST = 'https://ymxjmquw.lc-cn-n1-shared.com'; // REST API 服务器地址
 const USER_CLASS = 'UserData';
 const BACKUP_CLASS = 'StockBackup';
-const headers = { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY };
 
-/* ---------- LiveQuery 实例 ---------- */
-let realtimeClient = null;
-let liveQuerySub = null;
+// 注意：不再使用 AV.init()，完全通过 fetch 调用 REST API
 
 /* ---------- 用户系统 ---------- */
 function currentUser() { return { id: localStorage.getItem('lc_userid'), session: localStorage.getItem('lc_session') }; }
 
-// ✅ 替换为直接使用已加载的 AV SDK（由 HTML 引入）
-async function loadRealtimeSDK() {
-  if (!window.AV) {
-    throw new Error('❌ AV SDK 未加载，请在 HTML 中引入 https://cdn.jsdelivr.net/npm/leancloud-storage@4.15.2/dist/av.min.js');
-  }
-  if (!window.AV.LiveQueryPlugin) {
-    throw new Error('❌ 当前 AV SDK 不包含 LiveQueryPlugin');
-  }
-  window.Realtime = window.AV.Realtime;
-  return window.Realtime;
-}
-
 async function signUp(username, password) {
   const res = await fetch(`${LC_HOST}/1.1/users`, {
     method: 'POST',
-    headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json' },
+    headers: {
+      'X-LC-Id': LC_APP_ID,
+      'X-LC-Key': LC_APP_KEY,
+      'Content-Type': 'application/json'
+    },
     body: JSON.stringify({ username, password })
   });
   if (!res.ok) throw new Error(await res.text());
   const u = await res.json();
   localStorage.setItem('lc_session', u.sessionToken);
   localStorage.setItem('lc_userid', u.objectId);
-  await 抢占会话(u.objectId, u.sessionToken);
-  await 订阅被踢(u.objectId, u.sessionToken);
   await backgroundSyncCloud();
   return u;
 }
@@ -60,28 +47,22 @@ async function signUp(username, password) {
 async function logIn(username, password) {
   const res = await fetch(`${LC_HOST}/1.1/login`, {
     method: 'POST',
-    headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json' },
+    headers: {
+      'X-LC-Id': LC_APP_ID,
+      'X-LC-Key': LC_APP_KEY,
+      'Content-Type': 'application/json'
+    },
     body: JSON.stringify({ username, password })
   });
   if (!res.ok) throw new Error(await res.text());
   const u = await res.json();
   localStorage.setItem('lc_session', u.sessionToken);
   localStorage.setItem('lc_userid', u.objectId);
-  await 抢占会话(u.objectId, u.sessionToken);
-  await 订阅被踢(u.objectId, u.sessionToken);
   await backgroundSyncCloud();
   return u;
 }
 
 async function logOut() {
-  if (liveQuerySub) {
-    liveQuerySub.unsubscribe();
-    liveQuerySub = null;
-  }
-  if (realtimeClient) {
-    realtimeClient.close();
-    realtimeClient = null;
-  }
   const user = currentUser();
   if (user.id) await saveUserData(data);
   localStorage.removeItem('lc_session');
@@ -114,14 +95,21 @@ async function saveUserData(payload) {
   const url2 = row ? `${LC_HOST}/1.1/classes/${USER_CLASS}/${row.objectId}` : `${LC_HOST}/1.1/classes/${USER_CLASS}`;
   await fetch(url2, {
     method,
-    headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json', 'X-LC-Session': user.session },
+    headers: {
+      'X-LC-Id': LC_APP_ID,
+      'X-LC-Key': LC_APP_KEY,
+      'Content-Type': 'application/json',
+      'X-LC-Session': user.session
+    },
     body: JSON.stringify({ data: JSON.stringify(payload), owner: user.id })
   });
 }
 
 async function load() {
   const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw) try { return JSON.parse(raw); } catch {}
+  if (raw) try {
+    return JSON.parse(raw);
+  } catch {}
   return { categories: [{ id: 'default', name: '投顾' }], positions: [] };
 }
 
@@ -165,14 +153,26 @@ async function hourlyCloudSave() {
 
 async function backupToCloud() {
   try {
-    const raw = await (await fetch(`${LC_HOST}/1.1/classes/${BACKUP_CLASS}?limit=1`, { headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY } })).json();
+    const raw = await (await fetch(`${LC_HOST}/1.1/classes/${BACKUP_CLASS}?limit=1`, {
+      headers: {
+        'X-LC-Id': LC_APP_ID,
+        'X-LC-Key': LC_APP_KEY
+      }
+    })).json();
     const row = raw.results && raw.results[0] ? raw.results[0] : null;
     const method = row ? 'PUT' : 'POST';
     const url = row ? `${LC_HOST}/1.1/classes/${BACKUP_CLASS}/${row.objectId}` : `${LC_HOST}/1.1/classes/${BACKUP_CLASS}`;
     await fetch(url, {
       method,
-      headers: { 'X-LC-Id': LC_APP_ID, 'X-LC-Key': LC_APP_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: JSON.stringify(data), updatedAt: new Date().toISOString() })
+      headers: {
+        'X-LC-Id': LC_APP_ID,
+        'X-LC-Key': LC_APP_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        data: JSON.stringify(data),
+        updatedAt: new Date().toISOString()
+      })
     });
   } catch (e) {
     console.warn(e);
@@ -181,7 +181,10 @@ async function backupToCloud() {
 
 async function uploadNow() {
   const user = currentUser();
-  if (!user.id) { alert('请先登录'); return; }
+  if (!user.id) {
+    alert('请先登录');
+    return;
+  }
   try {
     await saveUserData(data);
     localStorage.setItem('BACKUP_KEY', Date.now());
@@ -192,17 +195,37 @@ async function uploadNow() {
 }
 
 /* ---------- 工具 ---------- */
-function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
-function fmtDate() { return new Date().toISOString().split('T')[0]; }
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2);
+}
+
+function fmtDate() {
+  return new Date().toISOString().split('T')[0];
+}
+
 function objToCSV(list) {
   const head = 'clientName,code,name,quantity,cost,current,dayRate,marketValue,profit,profitPct,pinned,joinDate,categoryName';
   const rows = list.map(r => {
     const catName = data.categories.find(c => c.id === r.categoryId)?.name || '投顾';
-    return [r.clientName, r.code, r.name, r.quantity, r.cost, r.current, r.dayRate, r.marketValue, r.profit, r.profitPct, r.pinned ? 1 : 0, r.joinDate, catName]
-      .map(v => (v + '').includes(',') ? `"${v}"` : v).join(',');
+    return [
+      r.clientName,
+      r.code,
+      r.name,
+      r.quantity,
+      r.cost,
+      r.current,
+      r.dayRate,
+      r.marketValue,
+      r.profit,
+      r.profitPct,
+      r.pinned ? 1 : 0,
+      r.joinDate,
+      catName
+    ].map(v => (v + '').includes(',') ? `"${v}"` : v).join(',');
   });
   return [head, ...rows].join('\n');
 }
+
 function csvToObj(str) {
   return str.trim().split('\n').slice(1).map(l => {
     const val = l.split(',').map(v => v.replace(/^"|"$/g, ''));
@@ -224,6 +247,7 @@ function csvToObj(str) {
     };
   });
 }
+
 function sortList(list) {
   if (!sortKey) {
     list.sort((a, b) => (b.pinned || 0) - (a.pinned || 0));
@@ -241,6 +265,7 @@ function sortList(list) {
     return 0;
   });
 }
+
 function bindSortEvent() {
   document.querySelectorAll('th.sortable').forEach(th => {
     th.addEventListener('click', () => {
@@ -258,6 +283,7 @@ function bindSortEvent() {
     });
   });
 }
+
 async function refreshPrice() {
   if (!data.positions.length) return;
   for (const it of data.positions) {
@@ -277,71 +303,9 @@ async function refreshPrice() {
   save();
   render();
 }
+
 function startAutoRefresh() {
   if (timer) clearInterval(timer);
   refreshPrice();
   timer = setInterval(refreshPrice, 5000);
-}
-
-/* ---------- 单设备在线：抢占会话 + LiveQuery ---------- */
-async function 抢占会话(userId, sessionToken){
-  const where = { user: { __type: 'Pointer', className: '_User', objectId: userId } };
-  const url = `${LC_HOST}/1.1/classes/UserSession?where=${encodeURIComponent(JSON.stringify(where))}&limit=1`;
-  const old = await (await fetch(url, { headers })).json();
-  const row = old.results?.[0];
-  const method = row ? 'PUT' : 'POST';
-  const url2 = row ? `${LC_HOST}/1.1/classes/UserSession/${row.objectId}` : `${LC_HOST}/1.1/classes/UserSession`;
-  await fetch(url2, {
-    method,
-    headers: { ...headers, 'X-LC-Session': sessionToken, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      user: { __type: 'Pointer', className: '_User', objectId: userId },
-      sessionToken,
-      device: localStorage.getItem('deviceId') || 生成设备ID()
-    })
-  });
-}
-
-function 生成设备ID(){
-  let id = localStorage.getItem('deviceId');
-  if (!id) {
-    id = 'web_' + uid();
-    localStorage.setItem('deviceId', id);
-  }
-  return id;
-}
-
-// ✅ 使用 v4 Realtime + LiveQuery（通过 av.min.js 提供）
-async function 订阅被踢(userId, sessionToken){
-  if (liveQuerySub) {
-    liveQuerySub.unsubscribe();
-    liveQuerySub = null;
-  }
-  if (realtimeClient) {
-    realtimeClient.close();
-    realtimeClient = null;
-  }
-  try {
-    const Realtime = await loadRealtimeSDK(); // 直接使用已加载的 AV.Realtime
-    realtimeClient = new Realtime({
-      appId: LC_APP_ID,
-      appKey: LC_APP_KEY,
-      server: 'cn-n1', // 区域必须为 cn-n1
-      plugins: [Realtime.LiveQueryPlugin]
-    });
-    const client = await realtimeClient.createClient();
-    const query = new AV.Query('UserSession').equalTo('user', AV.Object.createWithoutData('_User', userId));
-    liveQuerySub = client.subscribe(query);
-    liveQuerySub.on('update', (object) => {
-      if (object.get('sessionToken') !== sessionToken) {
-        alert('账号在其他设备登录，您已被强制下线');
-        logOut();
-      }
-    });
-    liveQuerySub.on('delete', () => {
-      logOut();
-    });
-  } catch (error) {
-    console.error('LiveQuery 订阅失败:', error);
-  }
 }
