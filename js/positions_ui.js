@@ -703,3 +703,52 @@ function renderVisitRecords(){
     container.appendChild(div);
   });
 }
+
+/* == 回访记录删除 == */
+function deleteVisitRecord(uId,rId){
+  if(!confirm('确定删除？'))return;
+  userProfiles.visitRecords[uId]=(userProfiles.visitRecords[uId]||[]).filter(r=>r.id!==rId);
+  saveUserProfiles();
+  renderVisitRecords();
+}
+
+/* == 画像CSV导入 == */
+async function importUserProfilesCSV(){
+  const i=document.createElement('input');
+  i.type='file';
+  i.accept='.csv';
+  i.onchange=async e=>{
+    const t=e.target.files[0];
+    if(!t)return;
+    const txt=await t.text(),lines=txt.trim().split('\n').slice(1);
+    if(!lines.length){alert('未解析到数据');return}
+    const map={0:'name',1:'entryTime',2:'recognition',3:'joinTime',4:'newPayment',5:'servicePeriod',6:'permission300',7:'permissionIndicator',8:'stockYears',9:'stockHabits',10:'fundAmount',11:'pricing',12:'discountedAmount',13:'occupation',14:'remarks'};
+    let a=0,s=0;
+    lines.forEach(l=>{
+      const arr=l.split(',').map(v=>v.replace(/^"|"$/g,''));
+      if(!arr[0])return;
+      if(userProfiles.profiles.some(p=>p.name===arr[0])){s++;return}
+      const p={id:uid(),name:arr[0]};
+      Object.keys(map).forEach(idx=>{
+        const k=map[idx];let v=arr[idx];
+        if(k==='recognition')v=parseInt(v)||3;
+        else if(['newPayment','fundAmount','pricing','stockYears','servicePeriod'].includes(k))v=parseFloat(v)||0;
+        p[k]=v;
+      });
+      p.discountedAmount=p.pricing-p.newPayment;
+      userProfiles.profiles.push(p);a++;
+    });
+    saveUserProfiles();renderUserProfileList();alert(`导入完成！新增${a}条，跳过${s}条重复。`);
+  };
+  i.click();
+}
+
+/* == 顶部追加导入按钮 == */
+function addProfileImportBtn(){
+  const h=document.querySelector('#userProfileModal .modal-header');
+  if(!h)return;
+  const b=document.createElement('button');
+  b.className='btn btn-primary';b.textContent='导入CSV';b.style.marginLeft='12px';b.onclick=importUserProfilesCSV;
+  h.appendChild(b);
+}
+window.addEventListener('DOMContentLoaded',addProfileImportBtn);
