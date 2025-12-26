@@ -38,6 +38,8 @@
       <button id="addBtn" class="btn btn-primary">添加持仓</button>
       <button id="exportBtn" class="btn btn-primary"></button>
       <button id="manageCatBtn" class="btn btn-primary">管理栏目</button>
+      <!-- 新增用户画像入口 -->
+      <button id="userProfileBtn" class="btn btn-primary">用户画像</button>
       <input type="text" id="searchInput" placeholder="搜索客户/代码/股票名..." class="search-box"/>
       <button id="userMgrBtn" style="display:none;">用户管理</button>
     </div>
@@ -136,7 +138,86 @@
       </div>
     </div>
   </div>
-<!-- 网站底部版权信息 -->
+
+  <!-- ===== 用户画像相关弹窗 ===== -->
+  <!-- 1 用户画像管理 -->
+  <div id="userProfileModal" class="modal">
+    <div class="modal-content" style="max-width:800px">
+      <div class="modal-header">用户画像管理</div>
+      <div style="margin-bottom:15px;display:flex;gap:10px;">
+        <input type="text" id="profileSearch" placeholder="搜索姓名..." class="search-box">
+        <button type="button" class="btn btn-primary" onclick="addUserProfile()">添加用户</button>
+        <button type="button" class="btn" onclick="exportUserProfiles()">导出</button>
+      </div>
+      <div id="userProfileList"></div>
+      <div class="modal-buttons">
+        <button type="button" class="btn" onclick="closeUserProfileModal()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 2 编辑用户画像 -->
+  <div id="editProfileModal" class="modal">
+    <div class="modal-content" style="max-width:600px">
+      <div class="modal-header">编辑用户画像</div>
+      <div class="form-grid" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="form-group"><label>进线时间</label><input id="profileEntryTime" type="datetime-local"></div>
+        <div class="form-group"><label>姓名</label><input id="profileName" type="text"></div>
+        <div class="form-group"><label>认可度</label>
+          <select id="profileRecognition">
+            <option value="5">5星 - 非常认可</option>
+            <option value="4">4星 - 比较认可</option>
+            <option value="3">3星 - 一般</option>
+            <option value="2">2星 - 不太认可</option>
+            <option value="1">1星 - 不认可</option>
+          </select>
+        </div>
+        <div class="form-group"><label>加入时间</label><input id="profileJoinTime" type="date"></div>
+        <div class="form-group"><label>新单缴纳金额</label><input id="profileNewPayment" type="number" step="0.01"></div>
+        <div class="form-group"><label>服务期（月）</label><input id="profileServicePeriod" type="number"></div>
+        <div class="form-group"><label>300权限</label>
+          <select id="permission300"><option value="无">无</option><option value="有">有</option></select>
+        </div>
+        <div class="form-group"><label>指标权限</label>
+          <select id="permissionIndicator">
+            <option value="无">无</option><option value="基础">基础</option><option value="高级">高级</option><option value="VIP">VIP</option>
+          </select>
+        </div>
+        <div class="form-group"><label>炒股年限</label><input id="profileStockYears" type="number" placeholder="年"></div>
+        <div class="form-group"><label>炒股习惯</label>
+          <select id="profileStockHabits">
+            <option value="短线">短线</option><option value="中线">中线</option><option value="长线">长线</option><option value="混合">混合</option>
+          </select>
+        </div>
+        <div class="form-group"><label>资金量（万）</label><input id="profileFundAmount" type="number" step="0.1"></div>
+        <div class="form-group"><label>定价</label><input id="profilePricing" type="number" step="0.01"></div>
+        <div class="form-group"><label>减免后金额</label><input id="profileDiscountedAmount" type="number" step="0.01" readonly style="background:#f5f5f5"></div>
+        <div class="form-group"><label>职业</label><input id="profileOccupation" type="text"></div>
+        <div class="form-group" style="grid-column:1/-1"><label>备注</label><textarea id="profileRemarks" rows="3" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:4px"></textarea></div>
+      </div>
+      <div class="modal-buttons">
+        <button type="button" class="btn" onclick="closeEditProfileModal()">取消</button>
+        <button type="button" class="btn btn-primary" onclick="saveUserProfile()">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 回访记录 -->
+  <div id="visitRecordModal" class="modal">
+    <div class="modal-content" style="max-width:600px">
+      <div class="modal-header">回访记录</div>
+      <div style="margin-bottom:15px;">
+        <input type="text" id="visitRecordContent" placeholder="输入回访内容..." class="search-box">
+        <button type="button" class="btn btn-primary" onclick="addVisitRecord()">添加记录</button>
+      </div>
+      <div id="visitRecordList" style="max-height:300px;overflow-y:auto"></div>
+      <div class="modal-buttons">
+        <button type="button" class="btn" onclick="closeVisitRecordModal()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 网站底部版权信息 -->
   <footer style="text-align: center; padding: 12px 0; font-size: 12px; color: #888; ">
     &copy; 2025 by.兔子 保留所有权利。｜
     本网站源码托管于 <a href="https://github.com" target="_blank" rel="noopener">GitHub</a>，
@@ -146,21 +227,3 @@
 <script src="js/positions_ui.js"></script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
