@@ -309,3 +309,14 @@ function startAutoRefresh() {
   refreshPrice();
   timer = setInterval(refreshPrice, 5000);
 }
+
+/* ========== 用户画像数据层 ========== */
+const USER_PROFILE_KEY = 'stockUserProfiles_v1';
+let userProfiles = { profiles: [], visitRecords: {} };      // 结构定义
+async function initUserProfiles() {                         // 初始化
+  const raw = localStorage.getItem(USER_PROFILE_KEY);
+  if (raw) try { userProfiles = JSON.parse(raw); } catch {}
+}
+function saveUserProfiles() {                               // 持久化
+  localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(userProfiles));
+}
