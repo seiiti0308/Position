@@ -536,7 +536,8 @@ function renderUserProfileList() {
   if(!list.length){ container.innerHTML='<div style="text-align:center;padding:20px;color:#999">暂无用户画像</div>'; return; }
   list.forEach(p=>{
     const div=document.createElement('div'); div.className='user-profile-card';
-    const star='★'.repeat(p.recognition)+'☆'.repeat(5-p.recognition);
+    const lvl = Math.max(1, Math.min(5, parseInt(p.recognition) || 3)); // 1-5 之间
+    const star='★'.repeat(lvl)+'☆'.repeat(5-lvl);
     const discounted=p.pricing-p.newPayment;
     div.innerHTML=`
       <div class="user-profile-header">
@@ -759,4 +760,5 @@ openUserProfileModal=function(){
   originalOpen();
   addImportBtnBesideExport();
 };
+
 
