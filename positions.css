@@ -408,3 +408,52 @@ input[type="password"]::-webkit-internal-reveal {
   width: 0 !important;
   height: 0 !important;
 }
+
+/* ===== 用户画像模块 ===== */
+.user-profile-card {
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 10px;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,.1);
+}
+.user-profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.user-profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  font-size: 13px;
+}
+.user-profile-grid div {
+  padding: 5px;
+  background: #f8f9fa;
+  border-radius: 4px;
+}
+.recognition-5 { color: #f39c12; }
+.recognition-4 { color: #27ae60; }
+.recognition-3 { color: #3498db; }
+.recognition-2 { color: #e67e22; }
+.recognition-1 { color: #e74c3c; }
+.visit-record-item {
+  border-left: 3px solid #667eea;
+  padding: 10px;
+  margin-bottom: 10px;
+  background: #f8f9fa;
+  border-radius: 0 4px 4px 0;
+}
+#userProfileList, #visitRecordList {
+  max-height: 400px;
+  overflow-y: auto;
+}
+#profileSearch, #visitRecordContent {
+  width: 70%;
+}
+#visitRecordContent {
+  margin-right: 8px;
+}
