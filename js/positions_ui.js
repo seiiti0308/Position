@@ -747,8 +747,19 @@ async function importUserProfilesCSV(){
 function addProfileImportBtn(){
   const h=document.querySelector('#userProfileModal .modal-header');
   if(!h)return;
+  // 避免重复添加
+  if(h.querySelector('.btn-import-csv'))return;
   const b=document.createElement('button');
-  b.className='btn btn-primary';b.textContent='导入CSV';b.style.marginLeft='12px';b.onclick=importUserProfilesCSV;
+  b.className='btn btn-primary btn-import-csv';
+  b.textContent='导入CSV';
+  b.style.marginLeft='12px';
+  b.onclick=importUserProfilesCSV;
   h.appendChild(b);
 }
-window.addEventListener('DOMContentLoaded',addProfileImportBtn);
+
+/* == 每次打开画像弹窗时追加按钮 == */
+const originalOpen=openUserProfileModal;
+openUserProfileModal=function(){
+  originalOpen();
+  addProfileImportBtn();
+};
