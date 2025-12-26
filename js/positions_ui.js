@@ -495,6 +495,15 @@ window.onload = async () => {
 
   const codeInput = document.getElementById('code');
   if (codeInput) codeInput.addEventListener('blur', autoName);
+
+  /* ========== 用户画像交互 ========== */
+  await initUserProfiles();                                       // 初始化数据
+  document.getElementById('userProfileBtn').onclick = openUserProfileModal;
+  document.getElementById('profileSearch').oninput = renderUserProfileList;
+  ['profilePricing','profileNewPayment'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.addEventListener('input',updateDiscountedAmount);
+  });
 };
 
 function togglePwd(icon) {
@@ -507,3 +516,36 @@ function togglePwd(icon) {
     icon.textContent = '👁';
   }
 }
+
+/* ---------- 用户画像函数群 ---------- */
+let currentProfileId = null;
+let currentVisitUserId = null;
+
+function openUserProfileModal() {
+  renderUserProfileList();
+  document.getElementById('userProfileModal').style.display = 'flex';
+}
+function closeUserProfileModal() {
+  document.getElementById('userProfileModal').style.display = 'none';
+}
+function renderUserProfileList() {
+  const container = document.getElementById('userProfileList');
+  const key = (document.getElementById('profileSearch').value || '').toLowerCase();
+  const list = key ? userProfiles.profiles.filter(p=>p.name.toLowerCase().includes(key)) : userProfiles.profiles;
+  container.innerHTML = '';
+  if(!list.length){ container.innerHTML='<div style="text-align:center;padding:20px;color:#999">暂无用户画像</div>'; return; }
+  list.forEach(p=>{
+    const div=document.createElement('div'); div.className='user-profile-card';
+    const star='★'.repeat(p.recognition)+'☆'.repeat(5-p.recognition);
+    const discounted=p.pricing-p.newPayment;
+    div.innerHTML=`
+      <div class="user-profile-header">
+        <h4 style="margin:0">${p.name}</h4>
+        <div>
+          <button class="op-btn" onclick="editUserProfile('${p.id}')">编辑</button>
+          <button class="op-btn" onclick="openVisitRecordModal('${p.id}')">回访记录</button>
+          <button class="op-btn del" onclick="deleteUserProfile('${p.id}')">删除</button>
+        </div>
+      </div>
+      <div class="user-profile-grid">
+        <div><strong>进线时间
