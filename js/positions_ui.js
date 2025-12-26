@@ -715,12 +715,12 @@ function deleteVisitRecord(uId,rId){
 /* == 画像CSV导入 == */
 async function importUserProfilesCSV(){
   const i=document.createElement('input');
-  i.type='file';
-  i.accept='.csv';
+  i.type='file';i.accept='.csv';
   i.onchange=async e=>{
-    const t=e.target.files[0];
-    if(!t)return;
-    const txt=await t.text(),lines=txt.trim().split('\n').slice(1);
+    const f=e.target.files[0];if(!f)return;
+    const buf=await f.arrayBuffer();                 // 先拿二进制
+    const txt=new TextDecoder('utf-8',{ignoreBOM:false}).decode(buf); // 带BOM解码
+    const lines=txt.trim().split('\n').slice(1);
     if(!lines.length){alert('未解析到数据');return}
     const map={0:'name',1:'entryTime',2:'recognition',3:'joinTime',4:'newPayment',5:'servicePeriod',6:'permission300',7:'permissionIndicator',8:'stockYears',9:'stockHabits',10:'fundAmount',11:'pricing',12:'discountedAmount',13:'occupation',14:'remarks'};
     let a=0,s=0;
@@ -743,23 +743,20 @@ async function importUserProfilesCSV(){
   i.click();
 }
 
-/* == 顶部追加导入按钮 == */
-function addProfileImportBtn(){
-  const h=document.querySelector('#userProfileModal .modal-header');
-  if(!h)return;
-  // 避免重复添加
-  if(h.querySelector('.btn-import-csv'))return;
-  const b=document.createElement('button');
-  b.className='btn btn-primary btn-import-csv';
-  b.textContent='导入CSV';
-  b.style.marginLeft='12px';
-  b.onclick=importUserProfilesCSV;
-  h.appendChild(b);
+/* == 把「导入CSV」放到「导出」旁边 == */
+function addImportBtnBesideExport(){
+  const bar=document.querySelector('#userProfileModal div[style*="margin-bottom:15px"]'); // 顶部按钮栏
+  if(!bar||bar.querySelector('.btn-import-csv'))return; // 避免重复
+  const btn=document.createElement('button');
+  btn.className='btn btn-primary btn-import-csv';
+  btn.textContent='导入CSV';
+  btn.style.marginLeft='8px';
+  btn.onclick=importUserProfilesCSV;
+  bar.appendChild(btn);
 }
-
-/* == 每次打开画像弹窗时追加按钮 == */
 const originalOpen=openUserProfileModal;
 openUserProfileModal=function(){
   originalOpen();
-  addProfileImportBtn();
+  addImportBtnBesideExport();
 };
+
