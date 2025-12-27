@@ -320,3 +320,11 @@ async function initUserProfiles() {                         // 初始化
 function saveUserProfiles() {                               // 持久化
   localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(userProfiles));
 }
+/* 计算服务到期时间：yyyy-mm-dd */
+function calcExpireDate(joinTime, months){
+  if(!joinTime||!months)return '';
+  const d=new Date(joinTime);
+  d.setMonth(d.getMonth()+Number(months));
+  d.setDate(d.getDate()-1);
+  return d.toISOString().slice(0,10);
+}
