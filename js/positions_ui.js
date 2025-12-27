@@ -368,7 +368,7 @@ document.getElementById('userMgrBtn').onclick = openUserMgrModal;
 window.onload = async () => {
   const user = currentUser();
   if (user.id) {
-    document.getElementById('loginModal').style.display = 'none';
+     document.getElementById('loginBtn').onclick = doLogin;
     document.getElementById('userMgrBtn').style.display = 'inline-block';
   } else {
     document.getElementById('loginModal').style.display = 'flex';
@@ -773,3 +773,4 @@ openUserProfileModal=function(){
   originalOpen();
   addImportBtnBesideExport();
 };
+
