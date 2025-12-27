@@ -1,4 +1,4 @@
-/* ========== positions_ui.js – 无持仓时也保证刷新栏目按钮颜色 ========== */
+  /* ========== positions_ui.js – 无持仓时也保证刷新栏目按钮颜色 ========== */
 function getCurrentPositions() {
   return data.positions.filter(p => {
     if (p.categoryId !== currentCategoryId) return false;
@@ -528,18 +528,28 @@ function openUserProfileModal() {
 function closeUserProfileModal() {
   document.getElementById('userProfileModal').style.display = 'none';
 }
+/* ===== 修复 recognition=-1 导致弹窗崩溃 ===== */
 function renderUserProfileList() {
   const container = document.getElementById('userProfileList');
-  const key = (document.getElementById('profileSearch').value || '').toLowerCase();
-  const list = key ? userProfiles.profiles.filter(p=>p.name.toLowerCase().includes(key)) : userProfiles.profiles;
+  if (!container) return;          // 节点不存在就不渲染
+  const key = (document.getElementById('profileSearch')?.value || '').toLowerCase();
+  const list = key ? userProfiles.profiles.filter(p => p.name.toLowerCase().includes(key)) : userProfiles.profiles;
+
   container.innerHTML = '';
-  if(!list.length){ container.innerHTML='<div style="text-align:center;padding:20px;color:#999">暂无用户画像</div>'; return; }
-  list.forEach(p=>{
-    const div=document.createElement('div'); div.className='user-profile-card';
-    const lvl = Math.max(1, Math.min(5, parseInt(p.recognition) || 3)); // 1-5 之间
-    const star='★'.repeat(lvl)+'☆'.repeat(5-lvl);
-    const discounted=p.pricing-p.newPayment;
-    div.innerHTML=`
+  if (!list.length) {
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:#999">暂无用户画像</div>';
+    return;
+  }
+
+  list.forEach(p => {
+    // 关键修复：保证 recognition 在 1-5 之间
+    const lvl = Math.max(1, Math.min(5, parseInt(p.recognition) || 3));
+    const star = '★'.repeat(lvl) + '☆'.repeat(5 - lvl);
+    const discounted = (p.pricing || 0) - (p.newPayment || 0);
+
+    const div = document.createElement('div');
+    div.className = 'user-profile-card';
+    div.innerHTML = `
       <div class="user-profile-header">
         <h4 style="margin:0">${p.name}</h4>
         <div>
@@ -550,20 +560,20 @@ function renderUserProfileList() {
       </div>
       <div class="user-profile-grid">
         <div><strong>进线时间</strong>${new Date(p.entryTime).toLocaleString()}</div>
-        <div><strong>认可度</strong><span class="recognition-${p.recognition}">${star}</span></div>
+        <div><strong>认可度</strong><span class="recognition-${lvl}">${star}</span></div>
         <div><strong>加入时间</strong>${p.joinTime}</div>
-        <div><strong>新单缴纳</strong><span style="color:#27ae60">¥${p.newPayment.toFixed(2)}</span></div>
-        <div><strong>服务期</strong>${p.servicePeriod}个月</div>
-        <div><strong>资金量</strong>${p.fundAmount}万</div>
-        <div><strong>定价</strong>¥${p.pricing.toFixed(2)}</div>
-        <div><strong>减免后</strong><span style="color:${discounted>=0?'#27ae60':'#e74c3c'}">¥${discounted.toFixed(2)}</span></div>
-        <div><strong>炒股年限</strong>${p.stockYears}年</div>
-        <div><strong>炒股习惯</strong>${p.stockHabits}</div>
-        <div><strong>职业</strong>${p.occupation||''}</div>
-        <div><strong>300权限</strong>${p.permission300}</div>
-        <div><strong>指标权限</strong>${p.permissionIndicator}</div>
+        <div><strong>新单缴纳</strong><span style="color:#27ae60">¥${(p.newPayment || 0).toFixed(2)}</span></div>
+        <div><strong>服务期</strong>${p.servicePeriod || 0}个月</div>
+        <div><strong>资金量</strong>${p.fundAmount || 0}万</div>
+        <div><strong>定价</strong>¥${(p.pricing || 0).toFixed(2)}</div>
+        <div><strong>减免后</strong><span style="color:${discounted >= 0 ? '#27ae60' : '#e74c3c'}">¥${discounted.toFixed(2)}</span></div>
+        <div><strong>炒股年限</strong>${p.stockYears || 0}年</div>
+        <div><strong>炒股习惯</strong>${p.stockHabits || ''}</div>
+        <div><strong>职业</strong>${p.occupation || ''}</div>
+        <div><strong>300权限</strong>${p.permission300 || '无'}</div>
+        <div><strong>指标权限</strong>${p.permissionIndicator || '无'}</div>
       </div>
-      ${p.remarks?`<div style="margin-top:10px"><strong>备注</strong>${p.remarks}</div>`:''}
+      ${p.remarks ? `<div style="margin-top:10px"><strong>备注</strong>${p.remarks}</div>` : ''}
     `;
     container.appendChild(div);
   });
@@ -760,5 +770,6 @@ openUserProfileModal=function(){
   originalOpen();
   addImportBtnBesideExport();
 };
+
 
 
