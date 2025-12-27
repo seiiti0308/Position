@@ -604,7 +604,7 @@ function saveUserProfile(){
     permissionIndicator:document.getElementById('permissionIndicator').value,
     stockYears:parseFloat(document.getElementById('profileStockYears').value)||0,
     stockHabits:document.getElementById('profileStockHabits').value,
-    fundAmount:parseFloat(document.getElementById('profileFundAmount').value)||0,
+    fundAmount:document.getElementById('profileFundAmount').value.trim(), 
     pricing:parseFloat(document.getElementById('profilePricing').value)||0,
     occupation:document.getElementById('profileOccupation').value.trim(),
     remarks:document.getElementById('profileRemarks').value.trim()
@@ -662,7 +662,7 @@ function exportUserProfiles(){
       p.permissionIndicator,
       p.stockYears+'年',
       p.stockHabits,
-      p.fundAmount+'万',
+      p.fundAmount,
       p.pricing.toFixed(2),
       discounted.toFixed(2),
       p.occupation||'',
@@ -692,7 +692,7 @@ function addVisitRecord(){
     id:uid(),
     content:content,
     time:new Date().toISOString(),
-    operator:localStorage.getItem('lc_username')||'管理员'
+    operator:localStorage.getItem('lc_username')||'admin'
   });
   saveUserProfiles();
   document.getElementById('visitRecordContent').value='';
@@ -770,6 +770,7 @@ openUserProfileModal=function(){
   originalOpen();
   addImportBtnBesideExport();
 };
+
 
 
 
